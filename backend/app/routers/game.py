@@ -38,11 +38,16 @@ def _is_unlocked(level, prog_map, levels_by_urutan) -> bool:
 
 
 def _check_answer(q: models.Question, jawaban: str) -> bool:
-    """Cocokkan jawaban dengan daftar jawaban yang diterima (abaikan
-    spasi & huruf besar/kecil)."""
+    """Cocokkan jawaban.
+    - Soal 'code': `jawaban` = output hasil menjalankan kode (dari Pyodide di
+      browser), dibandingkan persis dengan `expected` (peka huruf besar/kecil).
+    - Soal lain: dibandingkan dengan daftar `ans` (abaikan spasi & kapital)."""
+    norm = (jawaban or "").strip()
+    if q.tipe == "code":
+        return norm == (q.expected or "").strip()
     accepted = q.ans or []
-    norm = (jawaban or "").strip().lower()
-    return any(norm == str(a).strip().lower() for a in accepted)
+    low = norm.lower()
+    return any(low == str(a).strip().lower() for a in accepted)
 
 
 def _earn_badge(db: Session, user: models.User, key: str) -> bool:

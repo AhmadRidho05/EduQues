@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import client from '../api/client'
+import { runPython } from '../pyodide'
 
 const MAX_LIVES = 3
 
@@ -26,9 +27,12 @@ export default function Level() {
   const [score, setScore] = useState(0)
   const [lastGain, setLastGain] = useState(0)
 
-  // Soal 'code' (tulis kode) ditunda sampai Fase 6 (Pyodide).
-  const soal = (level?.questions || []).filter((q) => q.tipe !== 'code')
-  const jumlahCode = (level?.questions || []).length - soal.length
+  // Soal tulis-kode (Fase 6, Pyodide)
+  const [codeText, setCodeText] = useState('')
+  const [codeOutput, setCodeOutput] = useState('')
+  const [running, setRunning] = useState(false)
+
+  const soal = level?.questions || []
   const current = soal[idx]
 
   useEffect(() => {
@@ -37,24 +41,48 @@ export default function Level() {
       .catch((e) => setErr(e?.response?.data?.detail || 'Gagal memuat level.'))
   }, [id])
 
+  // Saat pindah ke soal tulis-kode, isi editor dengan kode awal (starter).
+  useEffect(() => {
+    if (current?.tipe === 'code') {
+      setCodeText(current.starter || '')
+      setCodeOutput('')
+    }
+  }, [idx, current?.id, current?.tipe, current?.starter])
+
   async function kirimJawaban(jawaban) {
-    if (feedback) return
+    if (feedback) return null
     const { data } = await client.post('/answer', {
       question_id: current.id, jawaban: String(jawaban),
     })
     setFeedback(data)
     if (data.benar) {
       const newCombo = combo + 1
-      const gain = 100 + Math.max(0, newCombo - 1) * 25  // makin panjang combo, makin gede
+      const gain = 100 + Math.max(0, newCombo - 1) * 25
       setCombo(newCombo)
       setMaxCombo((m) => Math.max(m, newCombo))
       setScore((s) => s + gain)
       setBenarCount((c) => c + 1)
       setLastGain(gain)
     } else {
-      setCombo(0)          // combo putus
+      setCombo(0)
       setLives((l) => l - 1)
       setLastGain(0)
+    }
+    return data
+  }
+
+  async function jalankanKode() {
+    if (feedback || running) return
+    setRunning(true)
+    setCodeOutput('⏳ Menyiapkan Python & menjalankan… (pertama kali agak lama)')
+    try {
+      const out = await runPython(codeText)
+      setCodeOutput(out || '(tidak ada output)')
+      await kirimJawaban(out)  // kirim output ke backend untuk diperiksa
+    } catch (e) {
+      setCodeOutput('Gagal menjalankan: ' + (e.message || e))
+    } finally {
+      setRunning(false)
     }
   }
 
@@ -66,7 +94,7 @@ export default function Level() {
 
     if (nyawaSisa <= 0) { setPhase('gagal'); return }
     if (idx + 1 >= soal.length) {
-      const stars = Math.max(1, nyawaSisa)          // bintang = sisa nyawa
+      const stars = Math.max(1, nyawaSisa)
       const { data } = await client.post(`/levels/${id}/complete`, { stars, score })
       setReward({ ...data, stars, score, maxCombo })
       setPhase('selesai')
@@ -79,6 +107,7 @@ export default function Level() {
     setIdx(0); setLives(MAX_LIVES); setBenarCount(0)
     setAnswer(''); setFeedback(null); setReward(null); setShowHint(false)
     setCombo(0); setMaxCombo(0); setScore(0); setLastGain(0)
+    setCodeOutput('')
     setPhase('materi')
   }
 
@@ -107,11 +136,6 @@ export default function Level() {
         <h1 style={{ margin: '.3rem 0' }}>Level {level.urutan}: {level.nama}</h1>
         <p className="muted" style={{ marginTop: 0 }}>Baca materi singkat ini dulu 👇</p>
         <pre className="code" style={{ marginTop: '1rem' }}>{level.materi}</pre>
-        {jumlahCode > 0 && (
-          <p className="muted" style={{ fontSize: '.82rem' }}>
-            ℹ️ Level ini punya {jumlahCode} soal tulis-kode yang akan aktif di Fase 6 (Pyodide).
-          </p>
-        )}
         <div className="flex gap-3" style={{ marginTop: '1.2rem' }}>
           <button className="btn btn-ghost" onClick={() => nav('/peta')}>← Peta</button>
           <button className="btn btn-primary" onClick={() => setPhase('main')}>
@@ -220,6 +244,28 @@ export default function Level() {
           </form>
         )}
 
+        {/* Tulis kode Python sungguhan (dijalankan di browser via Pyodide) */}
+        {current.tipe === 'code' && (
+          <div style={{ marginTop: '1rem' }}>
+            <textarea className="input" value={codeText} disabled={!!feedback} spellCheck={false}
+                      onChange={(e) => setCodeText(e.target.value)}
+                      style={{ fontFamily: 'Consolas, monospace', minHeight: 150,
+                               whiteSpace: 'pre', lineHeight: 1.5 }} />
+            {!feedback && (
+              <button className="btn btn-primary" style={{ marginTop: '.8rem' }}
+                      disabled={running} onClick={jalankanKode}>
+                {running ? '⏳ Menjalankan…' : '▶ Jalankan & Periksa'}
+              </button>
+            )}
+            {codeOutput && (
+              <div style={{ marginTop: '.8rem' }}>
+                <div className="muted" style={{ fontSize: '.78rem', marginBottom: 4 }}>Output:</div>
+                <pre className="code">{codeOutput}</pre>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Petunjuk */}
         {!feedback && current.hint && (
           <p style={{ marginTop: '1rem' }}>
@@ -240,7 +286,9 @@ export default function Level() {
               </p>
             ) : (
               <p style={{ color: 'var(--danger)', fontWeight: 700 }}>
-                ❌ Kurang tepat. Jawaban benar: <code>{feedback.jawaban_benar}</code>
+                ❌ Kurang tepat.{feedback.jawaban_benar
+                  ? <> Jawaban benar: <code>{feedback.jawaban_benar}</code></>
+                  : ' Cek lagi output-nya ya.'}
               </p>
             )}
             <button className="btn btn-primary" onClick={lanjut}>

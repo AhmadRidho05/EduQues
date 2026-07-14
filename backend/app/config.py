@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./pyquest.db"
 
     # Dipakai untuk menandatangani token login (Fase 2). Wajib diganti di produksi.
-    SECRET_KEY: str = "dev-secret-ganti-di-produksi"
+    # Minimal 32 karakter (rekomendasi HMAC-SHA256).
+    SECRET_KEY: str = "dev-secret-pyquest-ganti-di-produksi-dengan-kunci-acak-panjang"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

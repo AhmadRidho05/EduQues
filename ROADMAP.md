@@ -43,10 +43,12 @@ Tiap ganti fase, mulai sesi baru (`/clear`) biar konteks nggak bengkak & hemat l
 - [x] Lencana + leaderboard + combo 🔥 (bonus skor beruntun)
 - [x] Halaman Profil (XP progress bar + koleksi 8 lencana)
 
-## ⬜ Fase 6 — Pyodide: Kode Python di Browser
-- [ ] Integrasi Pyodide
-- [ ] Soal "tulis kode": jalankan + cek output otomatis
-- [ ] Lab Kode (editor bebas)
+## ✅ Fase 6 — Pyodide: Kode Python di Browser
+- [x] Integrasi Pyodide (CDN, dimuat sekali, `src/pyodide.js`)
+- [x] Soal "tulis kode": jalankan di browser → output dikirim ke backend → cek vs `expected`
+- [x] Lab Kode (editor bebas, /lab)
+- [x] Terverifikasi: Lab jalanin loop + `2**10=1024`; backend cek 'Bandung'→benar, 'Jakarta'→salah
+- Catatan: kunci jawaban 'code' tetap di server (anti-nyontek); soal 'code' kini aktif di semua level
 
 ## ⬜ Fase 7 — Sisi Dosen
 - [ ] Dashboard dosen

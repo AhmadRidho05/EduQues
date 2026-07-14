@@ -8,6 +8,7 @@ import Peta from './pages/Peta'
 import Level from './pages/Level'
 import Leaderboard from './pages/Leaderboard'
 import Profil from './pages/Profil'
+import Lab from './pages/Lab'
 import DosenDashboard from './pages/DosenDashboard'
 
 // Arahkan halaman utama sesuai peran.
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/level/:id" element={<Level />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/profil" element={<Profil />} />
+          <Route path="/lab" element={<Lab />} />
           <Route path="/dosen" element={<DosenDashboard />} />
         </Route>
       </Route>

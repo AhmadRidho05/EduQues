@@ -45,6 +45,7 @@ export default function Layout() {
           {user?.role === 'mahasiswa' && (
             <>
               <Link to="/peta" style={{ color: 'var(--text)' }}>Peta</Link>
+              <Link to="/lab" style={{ color: 'var(--text)' }}>Lab</Link>
               <Link to="/leaderboard" style={{ color: 'var(--text)' }}>Papan Skor</Link>
               <Link to="/profil" style={{ color: 'var(--text)' }}>Profil</Link>
             </>
