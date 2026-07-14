@@ -3,3 +3,6 @@ uvicorn[standard]
 sqlalchemy
 alembic
 pydantic-settings
+pyjwt
+python-multipart
+email-validator

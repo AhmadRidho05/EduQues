@@ -20,26 +20,28 @@ Tiap ganti fase, mulai sesi baru (`/clear`) biar konteks nggak bengkak & hemat l
 - [x] Seed: pindahkan 10 level + bank soal dari `content.py` PyQuest (10 level, 48 soal, 8 lencana ✔️)
 - [ ] *(Alembic terpasang tapi belum diaktifkan — nanti dipakai saat skema berubah; sekarang pakai `create_all`)*
 
-## ⬜ Fase 2 — Backend: Login & API Dasar
-- [ ] Register + login (hash password, JWT)
-- [ ] Bedakan peran dosen vs mahasiswa
-- [ ] Endpoint dasar (ambil level, ambil soal)
-- [ ] Tes lewat Swagger (`/docs`)
+## ✅ Fase 2 — Backend: Login & API Dasar
+- [x] Register + login (hash PBKDF2-SHA256, token JWT)
+- [x] Bedakan peran dosen vs mahasiswa
+- [x] Endpoint: /levels, /levels/{id}, /answer, /levels/{id}/complete, /leaderboard, /me/stats, /badges
+- [x] Tes lewat curl (register/login/proteksi 401 lolos)
 
-## ⬜ Fase 3 — Frontend: Fondasi
-- [ ] Setup React + Vite + Tailwind + React Router
-- [ ] Halaman login/register + simpan token
-- [ ] Protected route per peran
-- [ ] Layout + tema gelap/terang
+## ✅ Fase 3 — Frontend: Fondasi
+- [x] Setup React + Vite + Tailwind + React Router
+- [x] Halaman login/register + simpan token (localStorage) + interceptor axios
+- [x] Protected route (redirect ke /login kalau belum masuk)
+- [x] Layout + tema gelap/terang (toggle tersimpan)
 
-## ⬜ Fase 4 — Sisi Mahasiswa: Peta & Soal
-- [ ] Peta petualangan (10 node, buka bertahap)
-- [ ] Halaman level: materi + soal (pilihan ganda, tebak output, lengkapi kode)
-- [ ] Nyawa, skor, kirim jawaban ke backend
+## ✅ Fase 4 — Sisi Mahasiswa: Peta & Soal
+- [x] Peta petualangan (10 node, buka bertahap, bintang per level)
+- [x] Halaman level: materi + soal (pilihan ganda, tebak output, lengkapi kode)
+- [x] Nyawa ❤️, skor, kirim jawaban ke backend, hadiah XP/koin/lencana, unlock berikutnya
+- [ ] *(Soal 'code' ditunda ke Fase 6; boss battle ke Fase 8)*
 
-## ⬜ Fase 5 — Gamifikasi
-- [ ] XP, koin, level pemain, gelar
-- [ ] Lencana + leaderboard + combo
+## ✅ Fase 5 — Gamifikasi
+- [x] XP, koin, level pemain, gelar (di /me/stats + bar atas + reward)
+- [x] Lencana + leaderboard + combo 🔥 (bonus skor beruntun)
+- [x] Halaman Profil (XP progress bar + koleksi 8 lencana)
 
 ## ⬜ Fase 6 — Pyodide: Kode Python di Browser
 - [ ] Integrasi Pyodide
