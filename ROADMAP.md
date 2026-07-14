@@ -12,12 +12,13 @@ Tiap ganti fase, mulai sesi baru (`/clear`) biar konteks nggak bengkak & hemat l
 - [x] README, .gitignore, ROADMAP
 - [ ] Bikin repo GitHub & push pertama *(manual — lihat catatan di bawah)*
 
-## ⬜ Fase 1 — Database & Model
-- [ ] Bikin virtual environment Python di `backend/`
-- [ ] Install FastAPI + SQLAlchemy + Alembic
-- [ ] Rancang tabel: `users`, `levels`, `questions`, `progress`, `badges`, `user_badges`, `answers`
-- [ ] Setup SQLAlchemy models + koneksi SQLite
-- [ ] Seed: pindahkan 10 level + bank soal dari `content.py` PyQuest
+## ✅ Fase 1 — Database & Model
+- [x] Bikin virtual environment Python di `backend/`
+- [x] Install FastAPI + SQLAlchemy + Alembic
+- [x] Rancang tabel: `users`, `levels`, `questions`, `progress`, `badges`, `user_badges`, `answers`
+- [x] Setup SQLAlchemy models + koneksi SQLite
+- [x] Seed: pindahkan 10 level + bank soal dari `content.py` PyQuest (10 level, 48 soal, 8 lencana ✔️)
+- [ ] *(Alembic terpasang tapi belum diaktifkan — nanti dipakai saat skema berubah; sekarang pakai `create_all`)*
 
 ## ⬜ Fase 2 — Backend: Login & API Dasar
 - [ ] Register + login (hash password, JWT)
