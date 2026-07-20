@@ -50,14 +50,17 @@ Tiap ganti fase, mulai sesi baru (`/clear`) biar konteks nggak bengkak & hemat l
 - [x] Terverifikasi: Lab jalanin loop + `2**10=1024`; backend cek 'Bandung'→benar, 'Jakarta'→salah
 - Catatan: kunci jawaban 'code' tetap di server (anti-nyontek); soal 'code' kini aktif di semua level
 
-## ⬜ Fase 7 — Sisi Dosen
-- [ ] Dashboard dosen
-- [ ] CRUD level & soal
-- [ ] Pantau progres & nilai mahasiswa + statistik
+## ✅ Fase 7 — Sisi Dosen
+- [x] Dashboard dosen (statistik: jumlah mahasiswa/level/soal + menu)
+- [x] CRUD soal (tambah/edit/hapus per level) — router /dosen dijaga require_dosen
+- [x] Pantau progres & nilai mahasiswa (daftar + detail per-level)
+- [x] Terverifikasi end-to-end: tambah/edit/hapus soal via UI, detail mahasiswa, proteksi 403
 
-## ⬜ Fase 8 — Boss Battle & Poles
-- [ ] Boss battle (timer, HP bar, animasi)
-- [ ] Responsive, loading state, error handling
+## ✅ Fase 8 — Boss Battle & Poles
+- [x] Boss battle (HP bar boss, nyawa, timer per soal, animasi serangan) — endpoint /boss ambil soal acak dari pool
+- [x] Terverifikasi: HP boss 8→7 saat jawab benar + animasi 💥, timer mundur
+- [x] Header responsif (flex-wrap) — polish loading/error sudah ada di tiap halaman
+- Catatan: soal 'code' dikecualikan dari boss (biar cocok soal berwaktu)
 
 ## ⬜ Fase 9 — Deploy
 - [ ] Backend + PostgreSQL ke Render

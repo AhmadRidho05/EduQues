@@ -56,6 +56,8 @@ class Level(Base):
     nama: Mapped[str] = mapped_column(String(80))
     emoji: Mapped[str] = mapped_column(String(10), default="")
     materi: Mapped[str] = mapped_column(Text, default="")
+    lives: Mapped[int] = mapped_column(Integer, default=3)   # nyawa pemain (diatur dosen)
+    soal_ditanya: Mapped[int] = mapped_column(Integer, default=0)  # 0 = semua; N = ambil N acak
 
     # Khusus level boss
     is_boss: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -150,3 +152,41 @@ class Answer(Base):
 
     user: Mapped["User"] = relationship(back_populates="answers")
     question: Mapped["Question"] = relationship()
+
+
+class LevelAttempt(Base):
+    """Status percobaan level yang SEDANG berlangsung (disimpan di server
+    agar tidak bisa di-reset dengan cara keluar/refresh). Satu percobaan
+    aktif per (mahasiswa, level). Dihapus saat level selesai atau nyawa habis."""
+    __tablename__ = "level_attempts"
+    __table_args__ = (UniqueConstraint("user_id", "level_id", name="uq_level_attempt"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    level_id: Mapped[int] = mapped_column(ForeignKey("levels.id"))
+    idx: Mapped[int] = mapped_column(Integer, default=0)        # soal ke-berapa sekarang
+    lives: Mapped[int] = mapped_column(Integer, default=3)      # nyawa tersisa
+    question_order: Mapped[list | None] = mapped_column(JSON, nullable=True)  # urutan acak id soal
+    score: Mapped[int] = mapped_column(Integer, default=0)
+    combo: Mapped[int] = mapped_column(Integer, default=0)
+    max_combo: Mapped[int] = mapped_column(Integer, default=0)
+
+    user: Mapped["User"] = relationship()
+    level: Mapped["Level"] = relationship()
+
+
+class Material(Base):
+    """Materi yang diunggah/ditulis dosen untuk dibaca mahasiswa.
+    Bisa berupa teks (ditulis langsung) atau file PDF (diunggah)."""
+    __tablename__ = "materials"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    judul: Mapped[str] = mapped_column(String(150))
+    tipe: Mapped[str] = mapped_column(String(10))              # 'teks' | 'pdf'
+    konten: Mapped[str | None] = mapped_column(Text, nullable=True)         # untuk teks
+    file_stored: Mapped[str | None] = mapped_column(String(200), nullable=True)  # nama file di disk
+    file_asli: Mapped[str | None] = mapped_column(String(200), nullable=True)    # nama asli file
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    pembuat: Mapped["User"] = relationship()

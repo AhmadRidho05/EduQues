@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import client from '../api/client'
 import { runPython } from '../pyodide'
+import { burstConfetti } from '../confetti'
+import BossBattle from './BossBattle'
 
 const MAX_LIVES = 3
 
@@ -10,65 +12,94 @@ export default function Level() {
   const nav = useNavigate()
 
   const [level, setLevel] = useState(null)
+  const [soalList, setSoalList] = useState([])   // soal hasil acak dari percobaan (server)
   const [err, setErr] = useState('')
-  const [phase, setPhase] = useState('materi')  // materi | main | gagal | selesai
+  const [phase, setPhase] = useState('loading')  // loading | materi | main | gagal | selesai
 
+  // Status ini dikendalikan SERVER (anti-cheat): kita cuma menampilkan.
   const [idx, setIdx] = useState(0)
   const [lives, setLives] = useState(MAX_LIVES)
-  const [benarCount, setBenarCount] = useState(0)
+  const [score, setScore] = useState(0)
+  const [combo, setCombo] = useState(0)
+  const [lanjutan, setLanjutan] = useState(false)  // true kalau melanjutkan percobaan lama
+
   const [answer, setAnswer] = useState('')
-  const [feedback, setFeedback] = useState(null)  // {benar, jawaban_benar}
+  const [feedback, setFeedback] = useState(null)   // respons jawaban terakhir dari server
   const [reward, setReward] = useState(null)
   const [showHint, setShowHint] = useState(false)
+  const [busy, setBusy] = useState(false)
 
-  // Gamifikasi combo (Fase 5)
-  const [combo, setCombo] = useState(0)
-  const [maxCombo, setMaxCombo] = useState(0)
-  const [score, setScore] = useState(0)
-  const [lastGain, setLastGain] = useState(0)
-
-  // Soal tulis-kode (Fase 6, Pyodide)
   const [codeText, setCodeText] = useState('')
   const [codeOutput, setCodeOutput] = useState('')
   const [running, setRunning] = useState(false)
+  const [justLost, setJustLost] = useState(false)  // untuk animasi hati pecah
 
-  const soal = level?.questions || []
-  const current = soal[idx]
+  const soal = soalList[idx]
+  const total = soalList.length
+  const maxLives = level?.lives ?? MAX_LIVES   // jumlah nyawa diatur dosen per level
 
+  // Muat level + status percobaan yang tersimpan di server
   useEffect(() => {
-    client.get(`/levels/${id}`)
-      .then((r) => setLevel(r.data))
-      .catch((e) => setErr(e?.response?.data?.detail || 'Gagal memuat level.'))
+    let ok = true
+    async function load() {
+      try {
+        const [lv, at] = await Promise.all([
+          client.get(`/levels/${id}`),
+          client.get(`/levels/${id}/attempt`),
+        ])
+        if (!ok) return
+        setLevel(lv.data)
+        if (lv.data.is_boss) return
+        if (at.data.active) {          // ada percobaan belum selesai -> lanjutkan
+          setSoalList(at.data.questions || [])
+          setIdx(at.data.idx); setLives(at.data.lives)
+          setScore(at.data.score); setCombo(at.data.combo)
+          setLanjutan(at.data.idx > 0)
+          setPhase('main')
+        } else {
+          setPhase('materi')
+        }
+      } catch (e) {
+        if (ok) setErr(e?.response?.data?.detail || 'Gagal memuat level.')
+      }
+    }
+    load()
+    return () => { ok = false }
   }, [id])
 
-  // Saat pindah ke soal tulis-kode, isi editor dengan kode awal (starter).
+  // Isi editor kode saat pindah ke soal tulis-kode
   useEffect(() => {
-    if (current?.tipe === 'code') {
-      setCodeText(current.starter || '')
-      setCodeOutput('')
-    }
-  }, [idx, current?.id, current?.tipe, current?.starter])
+    if (soal?.tipe === 'code') { setCodeText(soal.starter || ''); setCodeOutput('') }
+  }, [idx, soal?.id, soal?.tipe, soal?.starter])
 
-  async function kirimJawaban(jawaban) {
-    if (feedback) return null
-    const { data } = await client.post('/answer', {
-      question_id: current.id, jawaban: String(jawaban),
-    })
-    setFeedback(data)
-    if (data.benar) {
-      const newCombo = combo + 1
-      const gain = 100 + Math.max(0, newCombo - 1) * 25
-      setCombo(newCombo)
-      setMaxCombo((m) => Math.max(m, newCombo))
-      setScore((s) => s + gain)
-      setBenarCount((c) => c + 1)
-      setLastGain(gain)
-    } else {
-      setCombo(0)
-      setLives((l) => l - 1)
-      setLastGain(0)
+  // Confetti saat level selesai 🎉
+  useEffect(() => {
+    if (phase === 'selesai') burstConfetti()
+  }, [phase])
+
+  async function mulai() {
+    const { data } = await client.post(`/levels/${id}/attempt/start`)
+    setSoalList(data.questions || [])
+    setIdx(data.idx); setLives(data.lives); setScore(data.score); setCombo(data.combo)
+    setFeedback(null); setAnswer(''); setCodeOutput(''); setShowHint(false)
+    setLanjutan(false); setReward(null)
+    setPhase('main')
+  }
+
+  async function kirim(val) {
+    if (busy || feedback) return
+    setBusy(true)
+    try {
+      const { data } = await client.post(`/levels/${id}/attempt/answer`,
+        { jawaban: String(val) })
+      setFeedback(data)
+      setLives(data.lives); setScore(data.score); setCombo(data.combo)
+      if (!data.benar) { setJustLost(true); setTimeout(() => setJustLost(false), 600) }
+    } catch (e) {
+      setErr(e?.response?.data?.detail || 'Gagal mengirim jawaban.')
+    } finally {
+      setBusy(false)
     }
-    return data
   }
 
   async function jalankanKode() {
@@ -78,7 +109,7 @@ export default function Level() {
     try {
       const out = await runPython(codeText)
       setCodeOutput(out || '(tidak ada output)')
-      await kirimJawaban(out)  // kirim output ke backend untuk diperiksa
+      await kirim(out)
     } catch (e) {
       setCodeOutput('Gagal menjalankan: ' + (e.message || e))
     } finally {
@@ -86,47 +117,22 @@ export default function Level() {
     }
   }
 
-  async function lanjut() {
-    const nyawaSisa = lives
-    setFeedback(null)
-    setAnswer('')
-    setShowHint(false)
-
-    if (nyawaSisa <= 0) { setPhase('gagal'); return }
-    if (idx + 1 >= soal.length) {
-      const stars = Math.max(1, nyawaSisa)
-      const { data } = await client.post(`/levels/${id}/complete`, { stars, score })
-      setReward({ ...data, stars, score, maxCombo })
-      setPhase('selesai')
-    } else {
-      setIdx((i) => i + 1)
-    }
-  }
-
-  function ulangi() {
-    setIdx(0); setLives(MAX_LIVES); setBenarCount(0)
-    setAnswer(''); setFeedback(null); setReward(null); setShowHint(false)
-    setCombo(0); setMaxCombo(0); setScore(0); setLastGain(0)
-    setCodeOutput('')
-    setPhase('materi')
+  function lanjut() {
+    const fb = feedback
+    setFeedback(null); setAnswer(''); setShowHint(false); setCodeOutput('')
+    if (fb.status === 'failed') { setPhase('gagal'); return }
+    if (fb.status === 'completed') { setReward(fb.reward); setPhase('selesai'); return }
+    setIdx(fb.idx)  // lanjut ke soal berikutnya (nomor dari server)
   }
 
   if (err) return <Pesan teks={err} onBack={() => nav('/peta')} />
   if (!level) return <p className="muted">Memuat…</p>
 
-  // ---- Boss (Fase 8) ----
-  if (level.is_boss) {
-    return (
-      <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
-        <div style={{ fontSize: '3rem' }}>{level.emoji}</div>
-        <h1>{level.nama}</h1>
-        <p className="muted">
-          ⚔️ Boss battle (timer + HP bar) akan aktif di <b>Fase 8</b>. Nantikan ya!
-        </p>
-        <button className="btn btn-primary" onClick={() => nav('/peta')}>← Kembali ke Peta</button>
-      </div>
-    )
-  }
+  // ---- Boss battle (Fase 8) ---- (dicek SEBELUM gerbang 'loading',
+  // karena untuk boss phase memang tidak dipakai)
+  if (level.is_boss) return <BossBattle levelId={id} />
+
+  if (phase === 'loading') return <p className="muted">Memuat…</p>
 
   // ---- Materi ----
   if (phase === 'materi') {
@@ -136,11 +142,13 @@ export default function Level() {
         <h1 style={{ margin: '.3rem 0' }}>Level {level.urutan}: {level.nama}</h1>
         <p className="muted" style={{ marginTop: 0 }}>Baca materi singkat ini dulu 👇</p>
         <pre className="code" style={{ marginTop: '1rem' }}>{level.materi}</pre>
+        <p className="muted" style={{ fontSize: '.82rem' }}>
+          ⚠️ Sekali mulai, nyawa yang berkurang tetap tercatat walau kamu keluar —
+          jadi kerjakan sampai selesai atau nyawa habis! 🔀 Soal &amp; urutannya diacak.
+        </p>
         <div className="flex gap-3" style={{ marginTop: '1.2rem' }}>
           <button className="btn btn-ghost" onClick={() => nav('/peta')}>← Peta</button>
-          <button className="btn btn-primary" onClick={() => setPhase('main')}>
-            Mulai ({soal.length} soal) →
-          </button>
+          <button className="btn btn-primary" onClick={mulai}>Mulai ({level.jumlah_soal} soal) →</button>
         </div>
       </div>
     )
@@ -152,10 +160,10 @@ export default function Level() {
       <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
         <div style={{ fontSize: '3rem' }}>💔</div>
         <h1>Nyawa habis!</h1>
-        <p className="muted">Tenang, coba lagi — kamu pasti bisa.</p>
+        <p className="muted">Percobaan ini selesai. Mulai lagi dari awal dengan nyawa penuh.</p>
         <div className="flex gap-3" style={{ justifyContent: 'center', marginTop: '1rem' }}>
           <button className="btn btn-ghost" onClick={() => nav('/peta')}>← Peta</button>
-          <button className="btn btn-primary" onClick={ulangi}>🔄 Ulangi</button>
+          <button className="btn btn-primary" onClick={mulai}>🔄 Coba Lagi</button>
         </div>
       </div>
     )
@@ -168,10 +176,15 @@ export default function Level() {
         <div style={{ fontSize: '3rem' }}>🎉</div>
         <h1>Level Selesai!</h1>
         <div style={{ fontSize: '2rem', color: 'var(--gold)', margin: '.5rem 0' }}>
-          {'⭐'.repeat(reward.stars)}{'☆'.repeat(3 - reward.stars)}
+          {Array.from({ length: 3 }).map((_, i) => (
+            <span key={i} className={i < reward.stars ? 'anim-star' : ''}
+                  style={{ animationDelay: `${i * 0.22}s` }}>
+              {i < reward.stars ? '⭐' : '☆'}
+            </span>
+          ))}
         </div>
         <p style={{ margin: '.3rem 0' }}>
-          Skor: <b>{reward.score}</b> · Combo tertinggi: <b style={{ color: 'var(--danger)' }}>🔥 {reward.maxCombo}</b>
+          Skor: <b>{reward.score}</b> · Combo tertinggi: <b style={{ color: 'var(--danger)' }}>🔥 {reward.max_combo}</b>
         </p>
         <p style={{ margin: '.3rem 0' }}>
           Total XP: <b>{reward.xp}</b> · Koin: <b style={{ color: 'var(--gold)' }}>🪙 {reward.koin}</b>
@@ -181,7 +194,7 @@ export default function Level() {
           <p style={{ color: 'var(--info)' }}>🎖️ Lencana baru: {reward.new_badges.join(', ')}</p>
         )}
         <div className="flex gap-3" style={{ justifyContent: 'center', marginTop: '1.2rem' }}>
-          <button className="btn btn-ghost" onClick={ulangi}>🔄 Ulangi</button>
+          <button className="btn btn-ghost" onClick={mulai}>🔄 Ulangi</button>
           <button className="btn btn-primary" onClick={() => nav('/peta')}>Lanjut ke Peta →</button>
         </div>
       </div>
@@ -190,29 +203,37 @@ export default function Level() {
 
   // ---- Main (mengerjakan soal) ----
   return (
-    <div>
-      {/* Bar status: progres + combo + nyawa */}
+    <div className={feedback && !feedback.benar ? 'anim-shake' : ''}>
+      {lanjutan && !feedback && (
+        <p className="muted" style={{ fontSize: '.82rem', marginBottom: '.5rem' }}>
+          ▶️ Melanjutkan percobaan sebelumnya (nyawa & posisi soal tersimpan).
+        </p>
+      )}
       <div className="flex items-center justify-between" style={{ marginBottom: '1rem' }}>
-        <span className="muted">Soal {idx + 1} / {soal.length} · {level.nama}</span>
+        <span className="muted">Soal {idx + 1} / {total} · {level.nama}</span>
         <span className="flex items-center gap-3">
           {combo >= 2 && (
-            <span style={{ color: 'var(--danger)', fontWeight: 700 }}>🔥 Combo x{combo}</span>
+            <span key={combo} className="anim-combo"
+                  style={{ color: 'var(--danger)', fontWeight: 700 }}>🔥 Combo x{combo}</span>
           )}
           <span style={{ fontSize: '1.1rem' }}>
-            {'❤️'.repeat(lives)}{'🤍'.repeat(MAX_LIVES - lives)}
+            {Array.from({ length: maxLives }).map((_, i) => {
+              if (i < lives) return <span key={i}>❤️</span>
+              if (i === lives && justLost) return <span key={i} className="anim-break">❤️</span>
+              return <span key={i}>🤍</span>
+            })}
           </span>
         </span>
       </div>
 
-      <div className="card" style={{ padding: '1.6rem' }}>
-        <h2 style={{ marginTop: 0, fontSize: '1.15rem' }}>{current.q}</h2>
-
-        {current.code && <pre className="code" style={{ margin: '1rem 0' }}>{current.code}</pre>}
+      <div key={idx} className="card fade-in" style={{ padding: '1.6rem', position: 'relative' }}>
+        <h2 style={{ marginTop: 0, fontSize: '1.15rem' }}>{soal.q}</h2>
+        {soal.code && <pre className="code" style={{ margin: '1rem 0' }}>{soal.code}</pre>}
 
         {/* Pilihan ganda */}
-        {current.tipe === 'mc' && (
+        {soal.tipe === 'mc' && (
           <div className="flex" style={{ flexDirection: 'column', gap: '.6rem', marginTop: '1rem' }}>
-            {current.opts.map((opt) => {
+            {soal.opts.map((opt) => {
               let border = 'var(--border)'
               if (feedback) {
                 if (opt === answer && feedback.benar) border = 'var(--success)'
@@ -221,31 +242,28 @@ export default function Level() {
               return (
                 <button key={opt} className="btn btn-ghost"
                         style={{ textAlign: 'left', borderColor: border }}
-                        disabled={!!feedback}
-                        onClick={() => { setAnswer(opt); kirimJawaban(opt) }}>
-                  {opt}
-                </button>
+                        disabled={!!feedback || busy}
+                        onClick={() => { setAnswer(opt); kirim(opt) }}>{opt}</button>
               )
             })}
           </div>
         )}
 
         {/* Tebak output / lengkapi kode */}
-        {(current.tipe === 'out' || current.tipe === 'blank') && (
-          <form onSubmit={(e) => { e.preventDefault(); if (!feedback && answer.trim()) kirimJawaban(answer) }}
+        {(soal.tipe === 'out' || soal.tipe === 'blank') && (
+          <form onSubmit={(e) => { e.preventDefault(); if (!feedback && answer.trim()) kirim(answer) }}
                 style={{ marginTop: '1rem' }}>
             <input className="input" value={answer} disabled={!!feedback} autoFocus
-                   placeholder="Ketik jawabanmu…"
-                   onChange={(e) => setAnswer(e.target.value)} />
+                   placeholder="Ketik jawabanmu…" onChange={(e) => setAnswer(e.target.value)} />
             {!feedback && (
               <button className="btn btn-primary" style={{ marginTop: '.8rem' }}
-                      disabled={!answer.trim()}>Jawab</button>
+                      disabled={!answer.trim() || busy}>Jawab</button>
             )}
           </form>
         )}
 
-        {/* Tulis kode Python sungguhan (dijalankan di browser via Pyodide) */}
-        {current.tipe === 'code' && (
+        {/* Tulis kode Python (Pyodide) */}
+        {soal.tipe === 'code' && (
           <div style={{ marginTop: '1rem' }}>
             <textarea className="input" value={codeText} disabled={!!feedback} spellCheck={false}
                       onChange={(e) => setCodeText(e.target.value)}
@@ -253,7 +271,7 @@ export default function Level() {
                                whiteSpace: 'pre', lineHeight: 1.5 }} />
             {!feedback && (
               <button className="btn btn-primary" style={{ marginTop: '.8rem' }}
-                      disabled={running} onClick={jalankanKode}>
+                      disabled={running || busy} onClick={jalankanKode}>
                 {running ? '⏳ Menjalankan…' : '▶ Jalankan & Periksa'}
               </button>
             )}
@@ -267,32 +285,35 @@ export default function Level() {
         )}
 
         {/* Petunjuk */}
-        {!feedback && current.hint && (
+        {!feedback && soal.hint && (
           <p style={{ marginTop: '1rem' }}>
             {showHint
-              ? <span className="muted">💡 {current.hint}</span>
+              ? <span className="muted">💡 {soal.hint}</span>
               : <button className="btn btn-ghost" style={{ fontSize: '.82rem', padding: '.35rem .7rem' }}
                         onClick={() => setShowHint(true)}>💡 Lihat petunjuk</button>}
           </p>
         )}
 
-        {/* Umpan balik benar/salah */}
+        {/* Umpan balik */}
         {feedback && (
           <div style={{ marginTop: '1.2rem' }}>
+            {feedback.benar && (
+              <span className="float-plus" style={{ top: '35%', color: 'var(--gold)' }}>+{feedback.gain}</span>
+            )}
             {feedback.benar ? (
-              <p style={{ color: 'var(--success)', fontWeight: 700 }}>
-                ✅ Benar! <span style={{ color: 'var(--gold)' }}>+{lastGain}</span>
+              <p className="anim-pop" style={{ color: 'var(--success)', fontWeight: 700, display: 'inline-block' }}>
+                ✅ Benar! <span style={{ color: 'var(--gold)' }}>+{feedback.gain}</span>
                 {combo >= 2 && <span style={{ color: 'var(--danger)' }}> 🔥 x{combo}</span>}
               </p>
             ) : (
               <p style={{ color: 'var(--danger)', fontWeight: 700 }}>
-                ❌ Kurang tepat.{feedback.jawaban_benar
+                ❌ Kurang tepat. −1 nyawa.{feedback.jawaban_benar
                   ? <> Jawaban benar: <code>{feedback.jawaban_benar}</code></>
                   : ' Cek lagi output-nya ya.'}
               </p>
             )}
             <button className="btn btn-primary" onClick={lanjut}>
-              {idx + 1 >= soal.length ? 'Selesaikan Level →' : 'Lanjut →'}
+              {feedback.status === 'active' ? 'Lanjut →' : 'Lihat Hasil →'}
             </button>
           </div>
         )}

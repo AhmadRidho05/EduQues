@@ -1,29 +1,52 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import client from '../api/client'
 import { useAuth } from '../context/AuthContext'
 
 export default function DosenDashboard() {
   const { user } = useAuth()
-  const [levels, setLevels] = useState([])
+  const [ov, setOv] = useState(null)
 
   useEffect(() => {
-    client.get('/levels').then((r) => setLevels(r.data)).catch(() => {})
+    client.get('/dosen/overview').then((r) => setOv(r.data)).catch(() => {})
   }, [])
+
+  if (user?.role !== 'dosen')
+    return <p className="muted">Halaman ini khusus dosen.</p>
+
+  const stat = (emoji, angka, label) => (
+    <div className="card" style={{ padding: '1.2rem', flex: 1, textAlign: 'center' }}>
+      <div style={{ fontSize: '1.6rem' }}>{emoji}</div>
+      <div style={{ fontSize: '1.8rem', fontWeight: 800 }}>{angka ?? '–'}</div>
+      <div className="muted" style={{ fontSize: '.82rem' }}>{label}</div>
+    </div>
+  )
+
+  const action = (to, emoji, judul, desc) => (
+    <Link to={to} className="card" style={{
+      padding: '1.4rem', flex: 1, display: 'block', color: 'var(--text)',
+      textDecoration: 'none',
+    }}>
+      <div style={{ fontSize: '1.8rem' }}>{emoji}</div>
+      <div style={{ fontWeight: 700, marginTop: '.3rem' }}>{judul}</div>
+      <div className="muted" style={{ fontSize: '.85rem' }}>{desc}</div>
+    </Link>
+  )
 
   return (
     <div>
       <h1 style={{ fontSize: '1.6rem' }}>👨‍🏫 Dashboard Dosen</h1>
-      <p className="muted" style={{ marginTop: 0 }}>Halo, {user?.nama} 👋 — ini area kelola konten.</p>
+      <p className="muted" style={{ marginTop: 0 }}>Halo, {user?.nama} 👋</p>
 
-      <div className="card" style={{ padding: '1.6rem', marginTop: '1rem' }}>
-        <p style={{ marginTop: 0 }}>
-          🚧 Fitur <b>kelola soal (CRUD)</b> dan <b>pantau nilai mahasiswa</b> akan
-          dibangun di <b>Fase 7</b>.
-        </p>
-        <p className="muted" style={{ marginBottom: 0 }}>
-          Saat ini ada <b>{levels.length} level</b> di sistem
-          (total {levels.reduce((s, l) => s + l.jumlah_soal, 0)} soal).
-        </p>
+      <div className="flex gap-3" style={{ marginTop: '1rem', flexWrap: 'wrap' }}>
+        {stat('🎓', ov?.num_students, 'Mahasiswa')}
+        {stat('🗺️', ov?.num_levels, 'Level')}
+        {stat('📝', ov?.num_questions, 'Total Soal')}
+      </div>
+
+      <div className="flex gap-3" style={{ marginTop: '1.4rem', flexWrap: 'wrap' }}>
+        {action('/dosen/soal', '📝', 'Kelola Soal', 'Tambah, ubah, hapus soal tiap level.')}
+        {action('/dosen/mahasiswa', '📊', 'Pantau Mahasiswa', 'Lihat progres & nilai mahasiswa.')}
       </div>
     </div>
   )

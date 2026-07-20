@@ -34,7 +34,7 @@ export default function Layout() {
   return (
     <div style={{ minHeight: '100vh' }}>
       <header
-        className="flex items-center justify-between px-6 py-3"
+        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-6 py-3"
         style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)' }}
       >
         <Link to="/" style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--text)' }}>
@@ -45,13 +45,19 @@ export default function Layout() {
           {user?.role === 'mahasiswa' && (
             <>
               <Link to="/peta" style={{ color: 'var(--text)' }}>Peta</Link>
+              <Link to="/materi" style={{ color: 'var(--text)' }}>Materi</Link>
               <Link to="/lab" style={{ color: 'var(--text)' }}>Lab</Link>
               <Link to="/leaderboard" style={{ color: 'var(--text)' }}>Papan Skor</Link>
               <Link to="/profil" style={{ color: 'var(--text)' }}>Profil</Link>
             </>
           )}
           {user?.role === 'dosen' && (
-            <Link to="/dosen" style={{ color: 'var(--text)' }}>Dashboard</Link>
+            <>
+              <Link to="/dosen" style={{ color: 'var(--text)' }}>Dashboard</Link>
+              <Link to="/dosen/soal" style={{ color: 'var(--text)' }}>Kelola Soal</Link>
+              <Link to="/dosen/materi" style={{ color: 'var(--text)' }}>Kelola Materi</Link>
+              <Link to="/dosen/mahasiswa" style={{ color: 'var(--text)' }}>Mahasiswa</Link>
+            </>
           )}
         </nav>
 

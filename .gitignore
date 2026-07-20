@@ -30,3 +30,6 @@ Thumbs.db
 
 # ===== Backup DB (jangan di-commit) =====
 backup/
+
+# ===== File materi PDF yang diunggah dosen =====
+uploads/

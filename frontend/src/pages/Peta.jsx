@@ -36,7 +36,7 @@ export default function Peta() {
 
       {err && <p style={{ color: 'var(--danger)' }}>{err}</p>}
 
-      <div className="card" style={{ position: 'relative', height: 560, marginTop: '1rem',
+      <div className="card fade-in" style={{ position: 'relative', height: 560, marginTop: '1rem',
                                      overflow: 'hidden' }}>
         {/* Jalur berkelok penghubung antar level */}
         <svg viewBox="0 0 100 100" preserveAspectRatio="none"
@@ -49,6 +49,7 @@ export default function Peta() {
         {levels.map((lv, i) => {
           const [x, y] = MAP_POS[i] || [50, 50]
           const clickable = lv.unlocked
+          const playable = lv.unlocked && lv.stars === 0 && !lv.is_boss
           return (
             <button
               key={lv.id}
@@ -66,6 +67,7 @@ export default function Peta() {
                 alignItems: 'center', justifyContent: 'center',
                 boxShadow: clickable ? `0 0 0 4px color-mix(in srgb, ${nodeColor(lv)} 22%, transparent)` : 'none',
                 opacity: lv.unlocked ? 1 : 0.55,
+                animation: playable ? 'nodePulse 2.2s ease infinite' : undefined,
               }}
             >
               <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>

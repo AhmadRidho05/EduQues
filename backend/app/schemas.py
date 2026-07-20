@@ -53,6 +53,8 @@ class LevelOut(BaseModel):
     unlocked: bool
     stars: int
     jumlah_soal: int
+    lives: int = 3
+    soal_ditanya: int = 0
 
 
 class LevelDetail(BaseModel):
@@ -62,6 +64,8 @@ class LevelDetail(BaseModel):
     emoji: str
     materi: str
     is_boss: bool
+    lives: int = 3
+    jumlah_soal: int = 0        # jumlah soal yang akan ditanyakan (setelah acak/ambil-N)
     hp: int | None = None
     timer: int | None = None
     questions: list[QuestionOut]
@@ -70,6 +74,12 @@ class LevelDetail(BaseModel):
 # ==================== JAWABAN & PROGRES ====================
 class AnswerIn(BaseModel):
     question_id: int
+    jawaban: str
+
+
+class AttemptAnswerIn(BaseModel):
+    """Jawaban untuk soal yang sedang aktif dalam sebuah percobaan level.
+    Tidak perlu question_id — server tahu soal ke-berapa dari data percobaan."""
     jawaban: str
 
 
@@ -96,3 +106,46 @@ class LeaderboardRow(BaseModel):
     xp: int
     player_level: int
     rank: str
+
+
+# ==================== DOSEN (kelola soal) ====================
+class QuestionAdmin(BaseModel):
+    """Soal versi dosen — LENGKAP dengan kunci jawaban (ans/expected)."""
+    id: int
+    level_id: int
+    urutan: int
+    tipe: str
+    q: str
+    hint: str = ""
+    opts: list | None = None
+    ans: list | None = None
+    code: str | None = None
+    starter: str | None = None
+    expected: str | None = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LevelSettingsIn(BaseModel):
+    """Pengaturan level yang bisa diubah dosen: jumlah nyawa & jumlah soal
+    yang ditanyakan (0 = semua soal, N = ambil N acak dari bank)."""
+    lives: int
+    soal_ditanya: int = 0
+
+
+class MaterialTextIn(BaseModel):
+    """Materi berupa teks yang ditulis dosen."""
+    judul: str
+    konten: str
+
+
+class QuestionIn(BaseModel):
+    """Data untuk membuat/mengubah soal."""
+    tipe: str  # 'mc' | 'out' | 'blank' | 'code'
+    q: str
+    hint: str = ""
+    opts: list | None = None
+    ans: list | None = None
+    code: str | None = None
+    starter: str | None = None
+    expected: str | None = None
+    urutan: int = 0
