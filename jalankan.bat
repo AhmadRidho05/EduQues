@@ -1,16 +1,16 @@
 @echo off
-title PyQuest Launcher
+title EduQuest Launcher
 cd /d "%~dp0"
 
 echo =============================================
-echo    Menjalankan PyQuest (Backend + Frontend)
+echo    Menjalankan EduQuest (Backend + Frontend)
 echo =============================================
 echo.
 echo [1/2] Menyalakan Backend  (port 8000)...
-start "PyQuest Backend" cmd /k "cd backend && .venv\Scripts\python.exe -m uvicorn app.main:app --port 8000"
+start "EduQuest Backend" cmd /k "cd backend && .venv\Scripts\python.exe -m uvicorn app.main:app --port 8000"
 
 echo [2/2] Menyalakan Frontend (port 5173)...
-start "PyQuest Frontend" cmd /k "cd frontend && npm run dev"
+start "EduQuest Frontend" cmd /k "cd frontend && npm run dev"
 
 echo.
 echo Menunggu server siap, lalu membuka browser...

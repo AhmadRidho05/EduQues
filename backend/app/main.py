@@ -15,7 +15,7 @@ from .routers import auth, dosen, game, kelas, materials, tes
 # Buat tabel kalau belum ada (nanti diganti Alembic saat skema berubah).
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="PyQuest Web API", version="0.2.0")
+app = FastAPI(title="EduQuest API", version="1.0.0")
 
 # Izinkan frontend (Vite dev server) memanggil API ini.
 app.add_middleware(

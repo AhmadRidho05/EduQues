@@ -1,11 +1,15 @@
-# 🐍 PyQuest Web — Platform Belajar Python Gamified
+# ⚡ EduQuest — Platform Belajar Gamified Multi-Kelas
 
-Platform belajar Python berbasis web yang menggabungkan **dua proyek desktop**:
+Platform belajar berbasis web dengan nuansa **game petualangan** — untuk mata pelajaran apa pun.
 
-- **PyQuest** (game edukasi) → peta petualangan, XP, koin, lencana, boss battle, Lab Kode
-- **Aplikasi Kuis** (dosen–mahasiswa) → dosen kelola bank soal & pantau nilai, mahasiswa mengerjakan
+- 🎮 **Mode Latihan** → peta petualangan, level, boss battle, XP/koin/lencana, Lab Kode
+- 📝 **Mode Tes Harian** → tes terjadwal & dinilai (anti-contek: soal acak)
+- 🏫 **Multi-kelas** → tiap dosen punya kelasnya sendiri (soal/materi/tes terpisah)
+- 📚 **Materi** → dosen kirim teks atau upload PDF
 
-**Hasil gabungan:** mahasiswa belajar sambil "main game", dosen mengatur konten & memantau progres — lewat browser.
+**Dua peran:** mahasiswa belajar sambil "main game" & ikut tes; dosen kelola konten + pantau nilai — semua lewat browser.
+
+> Bermula dari gabungan dua proyek desktop (game **PyQuest** + **Aplikasi Kuis**), kini berkembang jadi platform LMS gamified.
 
 ## 🧩 Konsep Dua Peran
 

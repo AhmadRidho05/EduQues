@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import Logo from '../components/Logo'
 
 export default function Login() {
   const { login } = useAuth()
@@ -28,8 +29,9 @@ export default function Login() {
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '1rem' }}>
       <form onSubmit={submit} className="card" style={{ width: 380, maxWidth: '100%', padding: '2rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ fontSize: '2.5rem' }}>🐍</div>
-          <h1 style={{ margin: '.3rem 0', fontSize: '1.5rem' }}>PyQuest</h1>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '.5rem' }}>
+            <Logo size={52} wordSize="1.7rem" />
+          </div>
           <p className="muted" style={{ margin: 0, fontSize: '.9rem' }}>Masuk untuk melanjutkan petualangan</p>
         </div>
 

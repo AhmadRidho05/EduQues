@@ -1,6 +1,6 @@
 @echo off
-title PyQuest - Matikan Server
-echo Mematikan server PyQuest (port 8000 dan 5173)...
+title EduQuest - Matikan Server
+echo Mematikan server EduQuest (port 8000 dan 5173)...
 echo.
 for %%P in (8000 5173) do (
   for /f "tokens=5" %%A in ('netstat -ano ^| findstr :%%P ^| findstr LISTENING') do (

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import Logo from '../components/Logo'
 
 export default function Register() {
   const { register } = useAuth()
@@ -29,8 +30,10 @@ export default function Register() {
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: '1rem' }}>
       <form onSubmit={submit} className="card" style={{ width: 400, maxWidth: '100%', padding: '2rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '1.4rem' }}>
-          <div style={{ fontSize: '2.5rem' }}>🐍</div>
-          <h1 style={{ margin: '.3rem 0', fontSize: '1.5rem' }}>Daftar Akun</h1>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '.4rem' }}>
+            <Logo size={44} wordSize="1.5rem" />
+          </div>
+          <h1 style={{ margin: '.3rem 0', fontSize: '1.15rem' }}>Daftar Akun</h1>
         </div>
 
         {err && (

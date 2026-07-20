@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import client from '../api/client'
+import Logo from './Logo'
 
 export default function Layout() {
   const { user, logout } = useAuth()
@@ -40,8 +41,8 @@ export default function Layout() {
         style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)' }}
       >
         <div className="flex items-center gap-3">
-          <Link to="/" style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--text)' }}>
-            🐍 PyQuest
+          <Link to="/" style={{ textDecoration: 'none' }}>
+            <Logo size={30} />
           </Link>
           {kelasAktif && (
             <Link to="/kelas" title="Ganti kelas" style={{ ...chip, color: 'var(--text)', textDecoration: 'none' }}>
