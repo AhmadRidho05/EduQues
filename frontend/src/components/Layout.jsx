@@ -9,13 +9,15 @@ export default function Layout() {
   const loc = useLocation()
   const [theme, setTheme] = useState(document.documentElement.dataset.theme)
   const [stats, setStats] = useState(null)
+  const [kelasAktif, setKelasAktif] = useState(null)
 
-  // Ambil statistik (XP, koin) tiap pindah halaman — supaya angka ter-update
-  // setelah menyelesaikan level.
+  // Ambil statistik (XP, koin) + kelas aktif tiap pindah halaman.
   useEffect(() => {
     if (user?.role === 'mahasiswa') {
       client.get('/me/stats').then((r) => setStats(r.data)).catch(() => {})
     }
+    client.get('/kelas/aktif')
+      .then((r) => setKelasAktif(r.data.aktif ? r.data : null)).catch(() => {})
   }, [loc.pathname, user])
 
   function toggleTheme() {
@@ -37,9 +39,16 @@ export default function Layout() {
         className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-6 py-3"
         style={{ background: 'var(--card)', borderBottom: '1px solid var(--border)' }}
       >
-        <Link to="/" style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--text)' }}>
-          🐍 PyQuest
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link to="/" style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--text)' }}>
+            🐍 PyQuest
+          </Link>
+          {kelasAktif && (
+            <Link to="/kelas" title="Ganti kelas" style={{ ...chip, color: 'var(--text)', textDecoration: 'none' }}>
+              📚 {kelasAktif.matkul}
+            </Link>
+          )}
+        </div>
 
         <nav className="flex items-center gap-4" style={{ fontSize: '.92rem' }}>
           {user?.role === 'mahasiswa' && (

@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from .. import game, models, schemas
 from ..database import get_db
-from ..deps import get_current_user
+from ..deps import get_current_user, require_kelas
 
 router = APIRouter(tags=["game"])
 
@@ -148,8 +148,10 @@ def _build_questions(db, order) -> list:
 # ---------- endpoints ----------
 @router.get("/levels", response_model=list[schemas.LevelOut])
 def list_levels(db: Session = Depends(get_db),
-                user: models.User = Depends(get_current_user)):
-    levels = db.query(models.Level).order_by(models.Level.urutan).all()
+                user: models.User = Depends(get_current_user),
+                kelas_id: int = Depends(require_kelas)):
+    levels = (db.query(models.Level).filter(models.Level.kelas_id == kelas_id)
+              .order_by(models.Level.urutan).all())
     prog = _progress_map(db, user.id)
     by_urutan = {lv.urutan: lv for lv in levels}
     return [
@@ -168,12 +170,14 @@ def list_levels(db: Session = Depends(get_db),
 
 @router.get("/levels/{level_id}", response_model=schemas.LevelDetail)
 def level_detail(level_id: int, db: Session = Depends(get_db),
-                 user: models.User = Depends(get_current_user)):
+                 user: models.User = Depends(get_current_user),
+                 kelas_id: int = Depends(require_kelas)):
     lv = db.get(models.Level, level_id)
-    if not lv:
+    if not lv or lv.kelas_id != kelas_id:
         raise HTTPException(404, "Level tidak ditemukan")
 
-    levels = db.query(models.Level).order_by(models.Level.urutan).all()
+    levels = (db.query(models.Level).filter(models.Level.kelas_id == kelas_id)
+              .order_by(models.Level.urutan).all())
     by_urutan = {x.urutan: x for x in levels}
     if not _is_unlocked(lv, _progress_map(db, user.id), by_urutan):
         raise HTTPException(403, "Level masih terkunci")
@@ -189,14 +193,16 @@ def level_detail(level_id: int, db: Session = Depends(get_db),
 
 @router.get("/boss/{level_id}")
 def boss_battle(level_id: int, db: Session = Depends(get_db),
-                user: models.User = Depends(get_current_user)):
+                user: models.User = Depends(get_current_user),
+                kelas_id: int = Depends(require_kelas)):
     """Data pertarungan boss: soal diambil ACAK dari level-level di `pool`
     (kecuali soal tulis-kode, biar cocok untuk soal berwaktu)."""
     lv = db.get(models.Level, level_id)
-    if not lv or not lv.is_boss:
+    if not lv or not lv.is_boss or lv.kelas_id != kelas_id:
         raise HTTPException(404, "Level boss tidak ditemukan")
 
-    levels = db.query(models.Level).order_by(models.Level.urutan).all()
+    levels = (db.query(models.Level).filter(models.Level.kelas_id == kelas_id)
+              .order_by(models.Level.urutan).all())
     by_urutan = {x.urutan: x for x in levels}
     if not _is_unlocked(lv, _progress_map(db, user.id), by_urutan):
         raise HTTPException(403, "Level masih terkunci")
@@ -204,7 +210,8 @@ def boss_battle(level_id: int, db: Session = Depends(get_db),
     pool = lv.pool or []
     qs = (db.query(models.Question)
           .join(models.Level, models.Question.level_id == models.Level.id)
-          .filter(models.Level.urutan.in_(pool),
+          .filter(models.Level.kelas_id == kelas_id,
+                  models.Level.urutan.in_(pool),
                   models.Question.tipe != "code")
           .all())
     random.shuffle(qs)
@@ -269,13 +276,15 @@ def get_attempt(level_id: int, db: Session = Depends(get_db),
 
 @router.post("/levels/{level_id}/attempt/start")
 def start_attempt(level_id: int, db: Session = Depends(get_db),
-                  user: models.User = Depends(get_current_user)):
+                  user: models.User = Depends(get_current_user),
+                  kelas_id: int = Depends(require_kelas)):
     """Mulai percobaan BARU (nyawa penuh). Menghapus percobaan lama kalau ada.
     Dipakai tombol 'Mulai' dan 'Ulangi'."""
     lv = db.get(models.Level, level_id)
-    if not lv:
+    if not lv or lv.kelas_id != kelas_id:
         raise HTTPException(404, "Level tidak ditemukan")
-    levels = db.query(models.Level).order_by(models.Level.urutan).all()
+    levels = (db.query(models.Level).filter(models.Level.kelas_id == kelas_id)
+              .order_by(models.Level.urutan).all())
     by_urutan = {x.urutan: x for x in levels}
     if not _is_unlocked(lv, _progress_map(db, user.id), by_urutan):
         raise HTTPException(403, "Level masih terkunci")

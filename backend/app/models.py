@@ -35,6 +35,8 @@ class User(Base):
     koin: Mapped[int] = mapped_column(Integer, default=KOIN_AWAL)
     lab_runs: Mapped[int] = mapped_column(Integer, default=0)
     theme: Mapped[str] = mapped_column(String(10), default="dark")
+    current_kelas_id: Mapped[int | None] = mapped_column(  # kelas yang sedang dibuka
+        ForeignKey("kelas.id"), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
@@ -52,7 +54,7 @@ class Level(Base):
     __tablename__ = "levels"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    urutan: Mapped[int] = mapped_column(Integer, unique=True)  # posisi di peta (1..10)
+    urutan: Mapped[int] = mapped_column(Integer)  # posisi di peta (1..10), unik per-kelas
     nama: Mapped[str] = mapped_column(String(80))
     emoji: Mapped[str] = mapped_column(String(10), default="")
     materi: Mapped[str] = mapped_column(Text, default="")
@@ -67,6 +69,8 @@ class Level(Base):
 
     # Siapa dosen pembuatnya (kosong = bawaan seed)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    # Milik kelas mana. NULL = level template (sumber kloning saat kelas dibuat).
+    kelas_id: Mapped[int | None] = mapped_column(ForeignKey("kelas.id"), nullable=True)
 
     questions: Mapped[list["Question"]] = relationship(
         back_populates="level", cascade="all, delete-orphan",
@@ -188,6 +192,7 @@ class Material(Base):
     file_asli: Mapped[str | None] = mapped_column(String(200), nullable=True)    # nama asli file
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    kelas_id: Mapped[int | None] = mapped_column(ForeignKey("kelas.id"), nullable=True)
 
     pembuat: Mapped["User"] = relationship()
 
@@ -207,7 +212,9 @@ class Kelas(Base):
     dosen_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
-    dosen: Mapped["User"] = relationship()
+    # foreign_keys eksplisit: ada 2 jalur FK antara kelas & users
+    # (kelas.dosen_id dan users.current_kelas_id), jadi harus ditegaskan.
+    dosen: Mapped["User"] = relationship(foreign_keys=[dosen_id])
 
 
 class KelasMember(Base):

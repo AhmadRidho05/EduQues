@@ -28,6 +28,28 @@ def _kode_baru(db: Session) -> str:
     raise HTTPException(500, "Gagal membuat kode unik, coba lagi.")
 
 
+def clone_template_levels(db: Session, kelas_id: int, dosen_id: int):
+    """Salin level template (kelas_id NULL) + soal-soalnya ke kelas baru,
+    supaya tiap kelas langsung punya kurikulum 10 level untuk diedit dosen."""
+    templates = (db.query(models.Level)
+                 .filter(models.Level.kelas_id.is_(None))
+                 .order_by(models.Level.urutan).all())
+    for lv in templates:
+        baru = models.Level(
+            urutan=lv.urutan, nama=lv.nama, emoji=lv.emoji, materi=lv.materi,
+            lives=lv.lives, soal_ditanya=lv.soal_ditanya, is_boss=lv.is_boss,
+            pool=lv.pool, hp=lv.hp, timer=lv.timer,
+            created_by=dosen_id, kelas_id=kelas_id)
+        db.add(baru)
+        db.flush()  # dapatkan baru.id
+        for q in lv.questions:
+            db.add(models.Question(
+                level_id=baru.id, urutan=q.urutan, tipe=q.tipe, q=q.q,
+                hint=q.hint, opts=q.opts, ans=q.ans, code=q.code,
+                starter=q.starter, expected=q.expected))
+    db.commit()
+
+
 def _to_dict(db: Session, k: models.Kelas, user: models.User) -> dict:
     jml = db.query(models.KelasMember).filter_by(kelas_id=k.id).count()
     return {
@@ -50,7 +72,40 @@ def buat_kelas(data: schemas.KelasCreate, db: Session = Depends(get_db),
     db.add(k)
     db.commit()
     db.refresh(k)
+    clone_template_levels(db, k.id, dosen.id)  # kelas baru langsung berisi 10 level
     return _to_dict(db, k, dosen)
+
+
+@router.post("/{kid}/masuk")
+def masuk_kelas(kid: int, db: Session = Depends(get_db),
+                user: models.User = Depends(get_current_user)):
+    """Set kelas ini sebagai kelas aktif. Semua konten lalu disaring ke kelas ini."""
+    k = db.get(models.Kelas, kid)
+    if not k:
+        raise HTTPException(404, "Kelas tidak ditemukan.")
+    if user.role == models.ROLE_DOSEN:
+        if k.dosen_id != user.id:
+            raise HTTPException(403, "Ini bukan kelasmu.")
+    else:
+        anggota = db.query(models.KelasMember).filter_by(
+            kelas_id=kid, user_id=user.id).first()
+        if not anggota:
+            raise HTTPException(403, "Kamu belum gabung kelas ini.")
+    user.current_kelas_id = kid
+    db.commit()
+    return {"ok": True, "kelas": _to_dict(db, k, user)}
+
+
+@router.get("/aktif")
+def kelas_aktif(db: Session = Depends(get_db),
+                user: models.User = Depends(get_current_user)):
+    """Kelas yang sedang aktif (dibuka) user, atau null."""
+    if not user.current_kelas_id:
+        return {"aktif": False}
+    k = db.get(models.Kelas, user.current_kelas_id)
+    if not k:
+        return {"aktif": False}
+    return {"aktif": True, **_to_dict(db, k, user)}
 
 
 @router.get("/saya")

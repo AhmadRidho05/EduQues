@@ -35,6 +35,13 @@ export default function KelasSaya() {
     } catch (e2) { setMsg('❌ ' + (e2?.response?.data?.detail || 'Gagal gabung.')) }
   }
 
+  async function masukKelas(k) {
+    try {
+      await client.post(`/kelas/${k.id}/masuk`)
+      nav(dosen ? '/dosen' : '/peta')
+    } catch (e2) { setMsg('❌ ' + (e2?.response?.data?.detail || 'Gagal masuk kelas.')) }
+  }
+
   async function keluarHapus(k) {
     const p = dosen ? `Hapus kelas "${k.matkul}"? Semua anggota akan dikeluarkan.` : `Keluar dari kelas "${k.matkul}"?`
     if (!window.confirm(p)) return
@@ -112,7 +119,7 @@ export default function KelasSaya() {
             )}
             <div className="flex gap-2" style={{ marginTop: 'auto', paddingTop: '.4rem' }}>
               <button className="btn btn-primary" style={{ flex: 1, padding: '.45rem' }}
-                      onClick={() => nav(dosen ? '/dosen' : '/peta')}>Masuk →</button>
+                      onClick={() => masukKelas(k)}>Masuk →</button>
               <button className="btn btn-ghost" style={{ padding: '.45rem .7rem', color: 'var(--danger)', borderColor: 'var(--danger)' }}
                       onClick={() => keluarHapus(k)}>{dosen ? 'Hapus' : 'Keluar'}</button>
             </div>

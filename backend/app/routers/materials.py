@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
-from ..deps import get_current_user, require_dosen
+from ..deps import get_current_user, require_dosen, require_kelas
 
 # backend/uploads/  (tetap sama di mana pun server dijalankan)
 UPLOAD_DIR = os.path.join(
@@ -39,8 +39,10 @@ def _to_dict(m: models.Material) -> dict:
 
 @router.get("")
 def list_materials(db: Session = Depends(get_db),
-                   user: models.User = Depends(get_current_user)):
+                   user: models.User = Depends(get_current_user),
+                   kelas_id: int = Depends(require_kelas)):
     rows = (db.query(models.Material)
+            .filter(models.Material.kelas_id == kelas_id)
             .order_by(models.Material.created_at.desc()).all())
     return [_to_dict(m) for m in rows]
 
@@ -48,9 +50,10 @@ def list_materials(db: Session = Depends(get_db),
 @router.post("")
 def create_text(data: schemas.MaterialTextIn,
                 db: Session = Depends(get_db),
-                dosen: models.User = Depends(require_dosen)):
+                dosen: models.User = Depends(require_dosen),
+                kelas_id: int = Depends(require_kelas)):
     m = models.Material(judul=data.judul, tipe="teks",
-                        konten=data.konten, created_by=dosen.id)
+                        konten=data.konten, created_by=dosen.id, kelas_id=kelas_id)
     db.add(m)
     db.commit()
     db.refresh(m)
@@ -61,7 +64,8 @@ def create_text(data: schemas.MaterialTextIn,
 def upload_pdf(judul: str = Form(...),
                file: UploadFile = File(...),
                db: Session = Depends(get_db),
-               dosen: models.User = Depends(require_dosen)):
+               dosen: models.User = Depends(require_dosen),
+               kelas_id: int = Depends(require_kelas)):
     nama = (file.filename or "").lower()
     if not nama.endswith(".pdf") or file.content_type not in (
             "application/pdf", "application/octet-stream"):
@@ -75,7 +79,8 @@ def upload_pdf(judul: str = Form(...),
         f.write(isi)
 
     m = models.Material(judul=judul, tipe="pdf", file_stored=stored,
-                        file_asli=file.filename, created_by=dosen.id)
+                        file_asli=file.filename, created_by=dosen.id,
+                        kelas_id=kelas_id)
     db.add(m)
     db.commit()
     db.refresh(m)

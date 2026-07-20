@@ -12,4 +12,16 @@ client.interceptors.request.use((config) => {
   return config
 })
 
+// Kalau backend bilang "belum pilih kelas" (409), arahkan ke halaman Kelas.
+client.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err?.response?.status === 409 &&
+        !window.location.pathname.startsWith('/kelas')) {
+      window.location.href = '/kelas'
+    }
+    return Promise.reject(err)
+  }
+)
+
 export default client

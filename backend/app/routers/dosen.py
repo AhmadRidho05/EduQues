@@ -10,7 +10,13 @@ from sqlalchemy.orm import Session
 
 from .. import game, models, schemas
 from ..database import get_db
-from ..deps import require_dosen
+from ..deps import require_dosen, require_kelas
+
+
+def _anggota_ids(db, kelas_id):
+    """Daftar user_id mahasiswa yang tergabung di kelas ini."""
+    return [m.user_id for m in
+            db.query(models.KelasMember).filter_by(kelas_id=kelas_id).all()]
 
 # dependencies di level router: SEMUA endpoint di sini butuh peran dosen
 router = APIRouter(prefix="/dosen", tags=["dosen"],
@@ -19,13 +25,14 @@ router = APIRouter(prefix="/dosen", tags=["dosen"],
 
 # ==================== RINGKASAN ====================
 @router.get("/overview")
-def overview(db: Session = Depends(get_db)):
-    return {
-        "num_students": db.query(models.User)
-            .filter(models.User.role == models.ROLE_MAHASISWA).count(),
-        "num_levels": db.query(models.Level).count(),
-        "num_questions": db.query(models.Question).count(),
-    }
+def overview(db: Session = Depends(get_db),
+             kelas_id: int = Depends(require_kelas)):
+    ids = _anggota_ids(db, kelas_id)
+    nlv = db.query(models.Level).filter(models.Level.kelas_id == kelas_id).count()
+    nq = (db.query(models.Question)
+          .join(models.Level, models.Question.level_id == models.Level.id)
+          .filter(models.Level.kelas_id == kelas_id).count())
+    return {"num_students": len(ids), "num_levels": nlv, "num_questions": nq}
 
 
 # ==================== KELOLA SOAL (CRUD) ====================
@@ -106,9 +113,11 @@ def delete_question(qid: int, db: Session = Depends(get_db)):
 
 # ==================== PANTAU MAHASISWA ====================
 @router.get("/students")
-def list_students(db: Session = Depends(get_db)):
+def list_students(db: Session = Depends(get_db),
+                  kelas_id: int = Depends(require_kelas)):
+    ids = _anggota_ids(db, kelas_id)
     students = (db.query(models.User)
-                .filter(models.User.role == models.ROLE_MAHASISWA)
+                .filter(models.User.id.in_(ids or [-1]))
                 .order_by(models.User.nama).all())
     out = []
     for s in students:
@@ -125,13 +134,17 @@ def list_students(db: Session = Depends(get_db)):
 
 
 @router.get("/students/{sid}")
-def student_detail(sid: int, db: Session = Depends(get_db)):
+def student_detail(sid: int, db: Session = Depends(get_db),
+                   kelas_id: int = Depends(require_kelas)):
+    if sid not in _anggota_ids(db, kelas_id):
+        raise HTTPException(404, "Mahasiswa bukan anggota kelas ini")
     s = db.get(models.User, sid)
-    if not s or s.role != models.ROLE_MAHASISWA:
+    if not s:
         raise HTTPException(404, "Mahasiswa tidak ditemukan")
     prog = {p.level_id: p for p in
             db.query(models.Progress).filter_by(user_id=sid).all()}
-    levels = db.query(models.Level).order_by(models.Level.urutan).all()
+    levels = (db.query(models.Level).filter(models.Level.kelas_id == kelas_id)
+              .order_by(models.Level.urutan).all())
     pl, _, _ = game.level_info(s.xp)
     return {
         "id": s.id, "nama": s.nama, "email": s.email,

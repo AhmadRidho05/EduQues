@@ -41,3 +41,12 @@ def require_dosen(user: models.User = Depends(get_current_user)) -> models.User:
     if user.role != models.ROLE_DOSEN:
         raise HTTPException(status_code=403, detail="Akses khusus dosen")
     return user
+
+
+def require_kelas(user: models.User = Depends(get_current_user)) -> int:
+    """Pastikan user sudah 'masuk' ke sebuah kelas. Mengembalikan kelas_id aktif.
+    Semua konten (level/soal/materi) disaring berdasarkan kelas ini."""
+    if not user.current_kelas_id:
+        raise HTTPException(status_code=409,
+                            detail="Belum memilih kelas. Buka menu Kelas dulu.")
+    return user.current_kelas_id

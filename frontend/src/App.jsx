@@ -18,8 +18,8 @@ import Mahasiswa from './pages/Mahasiswa'
 
 // Arahkan halaman utama sesuai peran.
 function HomeRedirect() {
-  const { user } = useAuth()
-  return <Navigate to={user?.role === 'dosen' ? '/dosen' : '/peta'} replace />
+  // Landing ke "Kelas Saya" — pintu masuk sebelum ke konten kelas.
+  return <Navigate to="/kelas" replace />
 }
 
 export default function App() {
