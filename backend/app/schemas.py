@@ -138,6 +138,8 @@ class LevelSettingsIn(BaseModel):
     yang ditanyakan (0 = semua soal, N = ambil N acak dari bank)."""
     lives: int
     soal_ditanya: int = 0
+    nama: str | None = None     # ganti judul bab (opsional)
+    materi: str | None = None   # ganti materi bab (opsional)
 
 
 class MaterialTextIn(BaseModel):
@@ -153,6 +155,8 @@ class KelasCreate(BaseModel):
     prodi: str = ""
     semester: str = ""
     kelas_label: str = ""
+    # True = isi dengan contoh kurikulum Python (PyQuest). Default: kelas kosong.
+    pakai_template: bool = False
 
 
 class GabungIn(BaseModel):

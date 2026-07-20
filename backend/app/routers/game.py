@@ -289,6 +289,9 @@ def start_attempt(level_id: int, db: Session = Depends(get_db),
     if not _is_unlocked(lv, _progress_map(db, user.id), by_urutan):
         raise HTTPException(403, "Level masih terkunci")
 
+    if not lv.questions:
+        raise HTTPException(400, "Level ini belum ada soalnya. Hubungi dosenmu ya.")
+
     old = db.query(models.LevelAttempt).filter_by(
         user_id=user.id, level_id=level_id).first()
     if old:

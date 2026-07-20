@@ -12,7 +12,6 @@ import Leaderboard from './pages/Leaderboard'
 import Profil from './pages/Profil'
 import Lab from './pages/Lab'
 import Materi from './pages/Materi'
-import KelasSaya from './pages/KelasSaya'
 import TesHarian from './pages/TesHarian'
 import TesKerjakan from './pages/TesKerjakan'
 import DosenDashboard from './pages/DosenDashboard'
@@ -27,15 +26,15 @@ export default function App() {
     <div className="app-shell">
     <Routes>
       {/* Halaman publik */}
-      <Route path="/" element={user ? <Navigate to="/kelas" replace /> : <Beranda />} />
-      <Route path="/login" element={user ? <Navigate to="/kelas" replace /> : <Login />} />
-      <Route path="/register" element={user ? <Navigate to="/kelas" replace /> : <Register />} />
-      <Route path="/lupa-password" element={user ? <Navigate to="/kelas" replace /> : <LupaPassword />} />
+      <Route path="/" element={user ? <Navigate to="/profil" replace /> : <Beranda />} />
+      <Route path="/login" element={user ? <Navigate to="/profil" replace /> : <Login />} />
+      <Route path="/register" element={user ? <Navigate to="/profil" replace /> : <Register />} />
+      <Route path="/lupa-password" element={user ? <Navigate to="/profil" replace /> : <LupaPassword />} />
 
       {/* Halaman yang butuh login */}
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
-          <Route path="/kelas" element={<KelasSaya />} />
+          <Route path="/kelas" element={<Navigate to="/profil" replace />} />
           <Route path="/peta" element={<Peta />} />
           <Route path="/level/:id" element={<Level />} />
           <Route path="/leaderboard" element={<Leaderboard />} />

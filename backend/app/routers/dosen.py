@@ -45,8 +45,13 @@ def update_level_settings(level_id: int, data: schemas.LevelSettingsIn,
         raise HTTPException(404, "Level tidak ditemukan")
     lv.lives = max(1, min(10, data.lives))
     lv.soal_ditanya = max(0, min(len(lv.questions), data.soal_ditanya))  # 0 = semua
+    if data.nama is not None and data.nama.strip():
+        lv.nama = data.nama.strip()
+    if data.materi is not None:
+        lv.materi = data.materi
     db.commit()
-    return {"id": lv.id, "lives": lv.lives, "soal_ditanya": lv.soal_ditanya}
+    return {"id": lv.id, "lives": lv.lives, "soal_ditanya": lv.soal_ditanya,
+            "nama": lv.nama, "materi": lv.materi}
 
 
 @router.get("/levels/{level_id}/questions",

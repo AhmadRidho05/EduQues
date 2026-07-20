@@ -50,6 +50,28 @@ def clone_template_levels(db: Session, kelas_id: int, dosen_id: int):
     db.commit()
 
 
+EMOJI_BAB = ["📘", "📗", "📙", "📕", "📓", "📔", "📒", "📚", "🗂️", "🏆"]
+
+
+def buat_level_kosong(db: Session, kelas_id: int, dosen_id: int):
+    """Buat 10 bab KOSONG (tanpa soal) untuk kelas baru — dosen mengisinya
+    sendiri sesuai mata pelajarannya. Bab 5 & 10 jadi ujian (boss)."""
+    for i in range(1, 11):
+        boss = i in (5, 10)
+        db.add(models.Level(
+            urutan=i,
+            nama=(f"Ujian Bab {i}" if boss else f"Bab {i}"),
+            emoji=EMOJI_BAB[i - 1],
+            materi="",
+            lives=3, soal_ditanya=0,
+            is_boss=boss,
+            pool=([1, 2, 3, 4] if i == 5 else ([6, 7, 8, 9] if i == 10 else None)),
+            hp=(8 if i == 5 else (10 if i == 10 else None)),
+            timer=(20 if i == 5 else (15 if i == 10 else None)),
+            created_by=dosen_id, kelas_id=kelas_id))
+    db.commit()
+
+
 def _to_dict(db: Session, k: models.Kelas, user: models.User) -> dict:
     jml = db.query(models.KelasMember).filter_by(kelas_id=k.id).count()
     return {
@@ -72,7 +94,11 @@ def buat_kelas(data: schemas.KelasCreate, db: Session = Depends(get_db),
     db.add(k)
     db.commit()
     db.refresh(k)
-    clone_template_levels(db, k.id, dosen.id)  # kelas baru langsung berisi 10 level
+    # Default: 10 bab KOSONG (dosen isi sendiri). Opsional: contoh kurikulum Python.
+    if data.pakai_template:
+        clone_template_levels(db, k.id, dosen.id)
+    else:
+        buat_level_kosong(db, k.id, dosen.id)
     return _to_dict(db, k, dosen)
 
 
@@ -149,6 +175,9 @@ def hapus_atau_keluar(kid: int, db: Session = Depends(get_db),
     # Dosen pemilik -> hapus kelas beserta keanggotaannya
     if user.role == models.ROLE_DOSEN and k.dosen_id == user.id:
         db.query(models.KelasMember).filter_by(kelas_id=kid).delete()
+        # jangan biarkan ada user yang "kelas aktif"-nya menunjuk kelas terhapus
+        db.query(models.User).filter(models.User.current_kelas_id == kid).update(
+            {"current_kelas_id": None}, synchronize_session=False)
         db.delete(k)
         db.commit()
         return {"ok": True, "aksi": "hapus"}
@@ -156,5 +185,7 @@ def hapus_atau_keluar(kid: int, db: Session = Depends(get_db),
     m = db.query(models.KelasMember).filter_by(kelas_id=kid, user_id=user.id).first()
     if m:
         db.delete(m)
-        db.commit()
+    if user.current_kelas_id == kid:
+        user.current_kelas_id = None
+    db.commit()
     return {"ok": True, "aksi": "keluar"}

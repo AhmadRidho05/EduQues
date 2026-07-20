@@ -45,27 +45,25 @@ export default function Layout() {
             <Logo size={30} />
           </Link>
           {kelasAktif && (
-            <Link to="/kelas" title="Ganti kelas" style={{ ...chip, color: 'var(--text)', textDecoration: 'none' }}>
+            <Link to="/profil" title="Ganti kelas" style={{ ...chip, color: 'var(--text)', textDecoration: 'none' }}>
               📚 {kelasAktif.matkul}
             </Link>
           )}
         </div>
 
+        {/* Menu lain baru muncul SETELAH masuk ke sebuah kelas. */}
         <nav className="flex items-center gap-4" style={{ fontSize: '.92rem' }}>
-          {user?.role === 'mahasiswa' && (
+          {kelasAktif && user?.role === 'mahasiswa' && (
             <>
-              <Link to="/kelas" style={{ color: 'var(--text)' }}>Kelas</Link>
               <Link to="/peta" style={{ color: 'var(--text)' }}>Peta</Link>
               <Link to="/tes-harian" style={{ color: 'var(--text)' }}>Tes</Link>
               <Link to="/materi" style={{ color: 'var(--text)' }}>Materi</Link>
               <Link to="/lab" style={{ color: 'var(--text)' }}>Lab</Link>
               <Link to="/leaderboard" style={{ color: 'var(--text)' }}>Papan Skor</Link>
-              <Link to="/profil" style={{ color: 'var(--text)' }}>Profil</Link>
             </>
           )}
-          {user?.role === 'dosen' && (
+          {kelasAktif && user?.role === 'dosen' && (
             <>
-              <Link to="/kelas" style={{ color: 'var(--text)' }}>Kelas</Link>
               <Link to="/dosen" style={{ color: 'var(--text)' }}>Dashboard</Link>
               <Link to="/dosen/soal" style={{ color: 'var(--text)' }}>Kelola Soal</Link>
               <Link to="/dosen/tes" style={{ color: 'var(--text)' }}>Kelola Tes</Link>
@@ -73,6 +71,10 @@ export default function Layout() {
               <Link to="/dosen/mahasiswa" style={{ color: 'var(--text)' }}>Mahasiswa</Link>
             </>
           )}
+          {/* Profil = tempat pilih/ganti kelas, selalu bisa diakses */}
+          <Link to="/profil" style={{ color: 'var(--text)', fontWeight: kelasAktif ? 400 : 700 }}>
+            {kelasAktif ? '👤 Profil' : '🎓 Pilih Kelas'}
+          </Link>
         </nav>
 
         <div className="flex items-center gap-2">

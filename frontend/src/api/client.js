@@ -17,8 +17,8 @@ client.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err?.response?.status === 409 &&
-        !window.location.pathname.startsWith('/kelas')) {
-      window.location.href = '/kelas'
+        !window.location.pathname.startsWith('/profil')) {
+      window.location.href = '/profil'
     }
     return Promise.reject(err)
   }
