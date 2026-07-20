@@ -5,34 +5,25 @@ import Logo from '../components/Logo'
 
 export default function LupaPassword() {
   const nav = useNavigate()
-  const [langkah, setLangkah] = useState(1)
   const [email, setEmail] = useState('')
-  const [info, setInfo] = useState(null)      // {nama, pertanyaan}
-  const [jawaban, setJawaban] = useState('')
   const [passBaru, setPassBaru] = useState('')
+  const [konfirmasi, setKonfirmasi] = useState('')
   const [err, setErr] = useState('')
   const [sukses, setSukses] = useState('')
   const [busy, setBusy] = useState(false)
 
-  async function cariPertanyaan(e) {
-    e.preventDefault(); setErr(''); setBusy(true)
-    try {
-      const { data } = await client.post('/auth/lupa/pertanyaan', { email })
-      setInfo(data); setLangkah(2)
-    } catch (e2) {
-      setErr(e2?.response?.data?.detail || 'Gagal memproses.')
-    } finally { setBusy(false) }
-  }
-
   async function gantiPassword(e) {
-    e.preventDefault(); setErr(''); setBusy(true)
+    e.preventDefault(); setErr('')
+    if (passBaru !== konfirmasi) {
+      setErr('Konfirmasi kata sandi tidak cocok.'); return
+    }
+    setBusy(true)
     try {
       const { data } = await client.post('/auth/lupa/reset',
-        { email, jawaban, password_baru: passBaru })
-      setSukses(data.pesan || 'Password berhasil diganti.')
-      setLangkah(3)
+        { email, password_baru: passBaru })
+      setSukses(data.pesan || 'Kata sandi berhasil diganti.')
     } catch (e2) {
-      setErr(e2?.response?.data?.detail || 'Gagal mengganti password.')
+      setErr(e2?.response?.data?.detail || 'Gagal mengganti kata sandi.')
     } finally { setBusy(false) }
   }
 
@@ -43,7 +34,7 @@ export default function LupaPassword() {
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '.5rem' }}>
             <Logo size={44} wordSize="1.5rem" />
           </div>
-          <h1 style={{ margin: '.3rem 0', fontSize: '1.15rem' }}>🔑 Lupa Password</h1>
+          <h1 style={{ margin: '.3rem 0', fontSize: '1.15rem' }}>🔑 Lupa Kata Sandi</h1>
         </div>
 
         {err && (
@@ -51,60 +42,42 @@ export default function LupaPassword() {
                         borderRadius: 10, marginBottom: '1rem', fontSize: '.86rem' }}>{err}</div>
         )}
 
-        {/* Langkah 1 — cari akun */}
-        {langkah === 1 && (
-          <form onSubmit={cariPertanyaan}>
-            <p className="muted" style={{ marginTop: 0, fontSize: '.88rem' }}>
-              Masukkan email akunmu. Nanti muncul pertanyaan keamanan yang kamu atur.
-            </p>
-            <label style={{ fontSize: '.85rem' }}>Email</label>
-            <input className="input" type="email" value={email} required autoFocus
-                   onChange={(e) => setEmail(e.target.value)}
-                   placeholder="nama@kampus.ac.id" style={{ margin: '.3rem 0 1.2rem' }} />
-            <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy}>
-              {busy ? 'Mencari…' : 'Lanjut'}
-            </button>
-          </form>
-        )}
-
-        {/* Langkah 2 — jawab + password baru */}
-        {langkah === 2 && info && (
-          <form onSubmit={gantiPassword}>
-            <p className="muted" style={{ marginTop: 0, fontSize: '.88rem' }}>
-              Halo <b style={{ color: 'var(--text)' }}>{info.nama}</b>, jawab pertanyaan ini:
-            </p>
-            <div className="card" style={{ padding: '.8rem 1rem', margin: '.6rem 0 1rem',
-                                           background: 'var(--bg)', fontWeight: 600 }}>
-              {info.pertanyaan}
-            </div>
-            <label style={{ fontSize: '.85rem' }}>Jawaban</label>
-            <input className="input" value={jawaban} required autoFocus
-                   onChange={(e) => setJawaban(e.target.value)}
-                   placeholder="Jawabanmu" style={{ margin: '.3rem 0 1rem' }} />
-            <label style={{ fontSize: '.85rem' }}>Password baru (min. 6 karakter)</label>
-            <input className="input" type="password" value={passBaru} required minLength={6}
-                   onChange={(e) => setPassBaru(e.target.value)}
-                   placeholder="••••••••" style={{ margin: '.3rem 0 1.2rem' }} />
-            <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy}>
-              {busy ? 'Menyimpan…' : 'Ganti Password'}
-            </button>
-            <button type="button" className="btn btn-ghost" style={{ width: '100%', marginTop: '.6rem' }}
-                    onClick={() => { setLangkah(1); setErr('') }}>← Ganti email</button>
-          </form>
-        )}
-
-        {/* Langkah 3 — berhasil */}
-        {langkah === 3 && (
+        {sukses ? (
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '2.5rem' }}>✅</div>
             <p style={{ color: 'var(--success)', fontWeight: 700 }}>{sukses}</p>
             <button className="btn btn-primary" style={{ width: '100%', marginTop: '.5rem' }}
                     onClick={() => nav('/login')}>Masuk Sekarang</button>
           </div>
+        ) : (
+          <form onSubmit={gantiPassword}>
+            <p className="muted" style={{ marginTop: 0, fontSize: '.88rem' }}>
+              Masukkan email akunmu dan kata sandi barunya.
+            </p>
+
+            <label style={{ fontSize: '.85rem' }}>Email</label>
+            <input className="input" type="email" value={email} required autoFocus
+                   onChange={(e) => setEmail(e.target.value)}
+                   placeholder="nama@kampus.ac.id" style={{ margin: '.3rem 0 1rem' }} />
+
+            <label style={{ fontSize: '.85rem' }}>Kata sandi baru (min. 6 karakter)</label>
+            <input className="input" type="password" value={passBaru} required minLength={6}
+                   autoComplete="new-password" onChange={(e) => setPassBaru(e.target.value)}
+                   placeholder="••••••••" style={{ margin: '.3rem 0 1rem' }} />
+
+            <label style={{ fontSize: '.85rem' }}>Konfirmasi kata sandi baru</label>
+            <input className="input" type="password" value={konfirmasi} required minLength={6}
+                   autoComplete="new-password" onChange={(e) => setKonfirmasi(e.target.value)}
+                   placeholder="Ulangi kata sandi baru" style={{ margin: '.3rem 0 1.2rem' }} />
+
+            <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy}>
+              {busy ? 'Menyimpan…' : 'Ganti Kata Sandi'}
+            </button>
+          </form>
         )}
 
         <p className="muted" style={{ textAlign: 'center', marginTop: '1.2rem', fontSize: '.86rem' }}>
-          Ingat passwordmu? <Link to="/login">Masuk di sini</Link>
+          Ingat kata sandimu? <Link to="/login">Masuk di sini</Link>
         </p>
       </div>
     </div>

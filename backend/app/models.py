@@ -37,9 +37,6 @@ class User(Base):
     theme: Mapped[str] = mapped_column(String(10), default="dark")
     current_kelas_id: Mapped[int | None] = mapped_column(  # kelas yang sedang dibuka
         ForeignKey("kelas.id"), nullable=True)
-    # Pemulihan akun: pertanyaan keamanan + jawaban (di-hash, tidak disimpan polos)
-    security_q: Mapped[str | None] = mapped_column(String(150), nullable=True)
-    security_a: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 

@@ -14,11 +14,6 @@ from ..security import create_access_token, hash_password, verify_password
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def _norm(jawaban: str) -> str:
-    """Samakan bentuk jawaban keamanan (abaikan spasi & huruf besar/kecil)."""
-    return (jawaban or "").strip().lower()
-
-
 @router.post("/register", response_model=schemas.Token)
 def register(data: schemas.UserCreate, db: Session = Depends(get_db)):
     """Buat akun baru lalu langsung berikan token (auto-login)."""
@@ -32,9 +27,6 @@ def register(data: schemas.UserCreate, db: Session = Depends(get_db)):
         email=data.email,
         password_hash=hash_password(data.password),
         role=role,
-        security_q=(data.security_q or "").strip() or None,
-        security_a=(hash_password(_norm(data.security_a))
-                    if data.security_a.strip() else None),
     )
     db.add(user)
     db.commit()
@@ -62,41 +54,14 @@ def me(user: models.User = Depends(get_current_user)):
 
 
 # ==================== LUPA PASSWORD ====================
-@router.post("/lupa/pertanyaan")
-def lupa_pertanyaan(data: schemas.LupaPertanyaanIn, db: Session = Depends(get_db)):
-    """Langkah 1: tampilkan pertanyaan keamanan milik email tersebut."""
+@router.post("/lupa/reset")
+def lupa_reset(data: schemas.LupaResetIn, db: Session = Depends(get_db)):
+    """Ganti kata sandi lewat email saja (tanpa verifikasi tambahan)."""
     user = db.query(models.User).filter(models.User.email == data.email).first()
     if not user:
         raise HTTPException(404, "Email tidak terdaftar.")
-    if not user.security_q or not user.security_a:
-        raise HTTPException(
-            400, "Akun ini belum mengatur pertanyaan keamanan. "
-                 "Minta dosen/admin untuk mereset password kamu.")
-    return {"nama": user.nama, "pertanyaan": user.security_q}
-
-
-@router.post("/lupa/reset")
-def lupa_reset(data: schemas.LupaResetIn, db: Session = Depends(get_db)):
-    """Langkah 2: cek jawaban, lalu pasang password baru."""
-    user = db.query(models.User).filter(models.User.email == data.email).first()
-    if not user or not user.security_a:
-        raise HTTPException(404, "Akun tidak ditemukan.")
-    if not verify_password(_norm(data.jawaban), user.security_a):
-        raise HTTPException(400, "Jawaban salah. Coba ingat-ingat lagi.")
     if len(data.password_baru) < 6:
-        raise HTTPException(400, "Password baru minimal 6 karakter.")
+        raise HTTPException(400, "Kata sandi baru minimal 6 karakter.")
     user.password_hash = hash_password(data.password_baru)
     db.commit()
-    return {"ok": True, "pesan": "Password berhasil diganti. Silakan masuk."}
-
-
-@router.post("/keamanan")
-def set_keamanan(data: schemas.KeamananIn, db: Session = Depends(get_db),
-                 user: models.User = Depends(get_current_user)):
-    """Atur/ubah pertanyaan keamanan sendiri (dipakai di halaman Profil)."""
-    if not data.pertanyaan.strip() or not data.jawaban.strip():
-        raise HTTPException(400, "Pertanyaan dan jawaban wajib diisi.")
-    user.security_q = data.pertanyaan.strip()
-    user.security_a = hash_password(_norm(data.jawaban))
-    db.commit()
-    return {"ok": True, "pertanyaan": user.security_q}
+    return {"ok": True, "pesan": "Kata sandi berhasil diganti. Silakan masuk."}
