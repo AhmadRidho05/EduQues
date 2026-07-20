@@ -190,3 +190,32 @@ class Material(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     pembuat: Mapped["User"] = relationship()
+
+
+class Kelas(Base):
+    """Kelas/matkul yang dibuat dosen. Mahasiswa gabung pakai `kode`.
+    Kombinasi konteks akademik bikin tiap kelas unik (anti-nabrak)."""
+    __tablename__ = "kelas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kode: Mapped[str] = mapped_column(String(12), unique=True, index=True)
+    matkul: Mapped[str] = mapped_column(String(100))
+    kampus: Mapped[str] = mapped_column(String(100), default="")
+    prodi: Mapped[str] = mapped_column(String(100), default="")
+    semester: Mapped[str] = mapped_column(String(20), default="")
+    kelas_label: Mapped[str] = mapped_column(String(50), default="")  # mis. "TI-3A"
+    dosen_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    dosen: Mapped["User"] = relationship()
+
+
+class KelasMember(Base):
+    """Keanggotaan mahasiswa di sebuah kelas (banyak-ke-banyak)."""
+    __tablename__ = "kelas_members"
+    __table_args__ = (UniqueConstraint("kelas_id", "user_id", name="uq_kelas_member"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kelas_id: Mapped[int] = mapped_column(ForeignKey("kelas.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    joined_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

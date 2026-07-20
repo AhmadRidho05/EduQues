@@ -10,6 +10,7 @@ import Leaderboard from './pages/Leaderboard'
 import Profil from './pages/Profil'
 import Lab from './pages/Lab'
 import Materi from './pages/Materi'
+import KelasSaya from './pages/KelasSaya'
 import DosenDashboard from './pages/DosenDashboard'
 import KelolaSoal from './pages/KelolaSoal'
 import KelolaMateri from './pages/KelolaMateri'
@@ -34,6 +35,7 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
           <Route path="/" element={<HomeRedirect />} />
+          <Route path="/kelas" element={<KelasSaya />} />
           <Route path="/peta" element={<Peta />} />
           <Route path="/level/:id" element={<Level />} />
           <Route path="/leaderboard" element={<Leaderboard />} />

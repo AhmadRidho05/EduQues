@@ -44,6 +44,7 @@ export default function Layout() {
         <nav className="flex items-center gap-4" style={{ fontSize: '.92rem' }}>
           {user?.role === 'mahasiswa' && (
             <>
+              <Link to="/kelas" style={{ color: 'var(--text)' }}>Kelas</Link>
               <Link to="/peta" style={{ color: 'var(--text)' }}>Peta</Link>
               <Link to="/materi" style={{ color: 'var(--text)' }}>Materi</Link>
               <Link to="/lab" style={{ color: 'var(--text)' }}>Lab</Link>
@@ -53,6 +54,7 @@ export default function Layout() {
           )}
           {user?.role === 'dosen' && (
             <>
+              <Link to="/kelas" style={{ color: 'var(--text)' }}>Kelas</Link>
               <Link to="/dosen" style={{ color: 'var(--text)' }}>Dashboard</Link>
               <Link to="/dosen/soal" style={{ color: 'var(--text)' }}>Kelola Soal</Link>
               <Link to="/dosen/materi" style={{ color: 'var(--text)' }}>Kelola Materi</Link>

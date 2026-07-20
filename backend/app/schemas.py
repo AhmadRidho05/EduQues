@@ -138,6 +138,20 @@ class MaterialTextIn(BaseModel):
     konten: str
 
 
+class KelasCreate(BaseModel):
+    """Data untuk dosen membuat kelas baru."""
+    matkul: str
+    kampus: str = ""
+    prodi: str = ""
+    semester: str = ""
+    kelas_label: str = ""
+
+
+class GabungIn(BaseModel):
+    """Mahasiswa gabung kelas dengan kode."""
+    kode: str
+
+
 class QuestionIn(BaseModel):
     """Data untuk membuat/mengubah soal."""
     tipe: str  # 'mc' | 'out' | 'blank' | 'code'

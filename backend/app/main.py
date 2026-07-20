@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import Base, engine
-from .routers import auth, dosen, game, materials
+from .routers import auth, dosen, game, kelas, materials
 
 # Buat tabel kalau belum ada (nanti diganti Alembic saat skema berubah).
 Base.metadata.create_all(bind=engine)
@@ -39,3 +39,4 @@ app.include_router(auth.router)
 app.include_router(game.router)
 app.include_router(dosen.router)
 app.include_router(materials.router)
+app.include_router(kelas.router)
