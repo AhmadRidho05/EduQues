@@ -5,6 +5,7 @@ import Layout from './components/Layout'
 import Beranda from './pages/Beranda'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import LupaPassword from './pages/LupaPassword'
 import Peta from './pages/Peta'
 import Level from './pages/Level'
 import Leaderboard from './pages/Leaderboard'
@@ -29,6 +30,7 @@ export default function App() {
       <Route path="/" element={user ? <Navigate to="/kelas" replace /> : <Beranda />} />
       <Route path="/login" element={user ? <Navigate to="/kelas" replace /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to="/kelas" replace /> : <Register />} />
+      <Route path="/lupa-password" element={user ? <Navigate to="/kelas" replace /> : <LupaPassword />} />
 
       {/* Halaman yang butuh login */}
       <Route element={<ProtectedRoute />}>

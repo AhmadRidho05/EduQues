@@ -1,11 +1,23 @@
 import { useEffect, useState } from 'react'
 import client from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { PERTANYAAN } from '../pertanyaanKeamanan'
 
 export default function Profil() {
   const { user } = useAuth()
   const [stats, setStats] = useState(null)
   const [badges, setBadges] = useState([])
+  const [sq, setSq] = useState(PERTANYAAN[0])
+  const [sa, setSa] = useState('')
+  const [msgK, setMsgK] = useState('')
+
+  async function simpanKeamanan() {
+    setMsgK('')
+    try {
+      await client.post('/auth/keamanan', { pertanyaan: sq, jawaban: sa })
+      setSa(''); setMsgK('✅ Pertanyaan keamanan tersimpan.')
+    } catch (e) { setMsgK('❌ ' + (e?.response?.data?.detail || 'Gagal menyimpan.')) }
+  }
 
   useEffect(() => {
     client.get('/me/stats').then((r) => setStats(r.data)).catch(() => {})
@@ -99,6 +111,27 @@ export default function Profil() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Keamanan akun — untuk pemulihan kalau lupa password */}
+      <h2 style={{ fontSize: '1.2rem', marginTop: '1.8rem' }}>🔑 Keamanan Akun</h2>
+      <div className="card" style={{ padding: '1.3rem', marginTop: '.6rem' }}>
+        <p className="muted" style={{ marginTop: 0, fontSize: '.85rem' }}>
+          Atur pertanyaan keamanan supaya kamu bisa memulihkan akun sendiri kalau lupa password.
+          Jawaban disimpan ter-enkripsi (tidak bisa dibaca siapa pun).
+        </p>
+        <select className="input" value={sq} onChange={(e) => setSq(e.target.value)}
+                style={{ marginBottom: '.6rem' }}>
+          {PERTANYAAN.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <input className="input" value={sa} onChange={(e) => setSa(e.target.value)}
+               placeholder="Jawabanmu (ingat baik-baik!)" />
+        <div className="flex items-center gap-3" style={{ marginTop: '.9rem' }}>
+          <button className="btn btn-primary" onClick={simpanKeamanan} disabled={!sa.trim()}>
+            Simpan
+          </button>
+          {msgK && <span className="muted" style={{ fontSize: '.85rem' }}>{msgK}</span>}
+        </div>
       </div>
     </div>
   )

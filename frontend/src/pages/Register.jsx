@@ -2,11 +2,15 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Logo from '../components/Logo'
+import { PERTANYAAN } from '../pertanyaanKeamanan'
 
 export default function Register() {
   const { register } = useAuth()
   const nav = useNavigate()
-  const [form, setForm] = useState({ nama: '', email: '', password: '', role: 'mahasiswa' })
+  const [form, setForm] = useState({
+    nama: '', email: '', password: '', role: 'mahasiswa',
+    security_q: PERTANYAAN[0], security_a: '',
+  })
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -61,6 +65,20 @@ export default function Register() {
           <option value="mahasiswa">🎓 Mahasiswa (bermain & belajar)</option>
           <option value="dosen">👨‍🏫 Dosen (kelola soal)</option>
         </select>
+
+        {/* Pemulihan akun kalau lupa password */}
+        <div className="card" style={{ padding: '.9rem 1rem', background: 'var(--bg)', marginBottom: '1.3rem' }}>
+          <div style={{ fontSize: '.85rem', fontWeight: 600, marginBottom: '.5rem' }}>🔑 Pertanyaan keamanan</div>
+          <p className="muted" style={{ fontSize: '.76rem', margin: '0 0 .6rem' }}>
+            Dipakai kalau kamu lupa password nanti. Ingat baik-baik jawabannya!
+          </p>
+          <select className="input" value={form.security_q} onChange={set('security_q')}
+                  style={{ marginBottom: '.6rem' }}>
+            {PERTANYAAN.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <input className="input" value={form.security_a} required onChange={set('security_a')}
+                 placeholder="Jawabanmu" />
+        </div>
 
         <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy}>
           {busy ? 'Memproses…' : 'Daftar'}

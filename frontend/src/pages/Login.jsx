@@ -56,7 +56,10 @@ export default function Login() {
           {busy ? 'Memproses…' : 'Masuk'}
         </button>
 
-        <p className="muted" style={{ textAlign: 'center', marginTop: '1.2rem', fontSize: '.88rem' }}>
+        <p style={{ textAlign: 'center', marginTop: '1rem', fontSize: '.86rem' }}>
+          <Link to="/lupa-password">🔑 Lupa password?</Link>
+        </p>
+        <p className="muted" style={{ textAlign: 'center', marginTop: '.5rem', fontSize: '.88rem' }}>
           Belum punya akun? <Link to="/register">Daftar di sini</Link>
         </p>
       </form>

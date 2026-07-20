@@ -14,6 +14,26 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     role: str = "mahasiswa"  # 'mahasiswa' | 'dosen'
+    security_q: str = ""     # pertanyaan keamanan (untuk lupa password)
+    security_a: str = ""     # jawabannya (disimpan ter-hash)
+
+
+class LupaPertanyaanIn(BaseModel):
+    """Langkah 1 lupa password: minta pertanyaan keamanan dari email."""
+    email: EmailStr
+
+
+class LupaResetIn(BaseModel):
+    """Langkah 2: jawab pertanyaan + set password baru."""
+    email: EmailStr
+    jawaban: str
+    password_baru: str
+
+
+class KeamananIn(BaseModel):
+    """Atur/ubah pertanyaan keamanan sendiri (dari halaman Profil)."""
+    pertanyaan: str
+    jawaban: str
 
 
 class UserOut(BaseModel):
