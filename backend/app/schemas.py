@@ -3,6 +3,8 @@ Skema Pydantic: bentuk data yang masuk (request) & keluar (response) API.
 FastAPI memakai ini untuk validasi otomatis + dokumentasi di /docs.
 """
 
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, EmailStr
 
 
@@ -150,6 +152,18 @@ class KelasCreate(BaseModel):
 class GabungIn(BaseModel):
     """Mahasiswa gabung kelas dengan kode."""
     kode: str
+
+
+class TesCreate(BaseModel):
+    """Dosen membuat tes terjadwal."""
+    judul: str
+    jumlah_soal: int = 10
+    waktu_mulai: datetime
+    waktu_selesai: datetime
+
+
+class TesJawabIn(BaseModel):
+    jawaban: str
 
 
 class QuestionIn(BaseModel):

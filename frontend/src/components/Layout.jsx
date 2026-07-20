@@ -55,6 +55,7 @@ export default function Layout() {
             <>
               <Link to="/kelas" style={{ color: 'var(--text)' }}>Kelas</Link>
               <Link to="/peta" style={{ color: 'var(--text)' }}>Peta</Link>
+              <Link to="/tes-harian" style={{ color: 'var(--text)' }}>Tes</Link>
               <Link to="/materi" style={{ color: 'var(--text)' }}>Materi</Link>
               <Link to="/lab" style={{ color: 'var(--text)' }}>Lab</Link>
               <Link to="/leaderboard" style={{ color: 'var(--text)' }}>Papan Skor</Link>
@@ -66,6 +67,7 @@ export default function Layout() {
               <Link to="/kelas" style={{ color: 'var(--text)' }}>Kelas</Link>
               <Link to="/dosen" style={{ color: 'var(--text)' }}>Dashboard</Link>
               <Link to="/dosen/soal" style={{ color: 'var(--text)' }}>Kelola Soal</Link>
+              <Link to="/dosen/tes" style={{ color: 'var(--text)' }}>Kelola Tes</Link>
               <Link to="/dosen/materi" style={{ color: 'var(--text)' }}>Kelola Materi</Link>
               <Link to="/dosen/mahasiswa" style={{ color: 'var(--text)' }}>Mahasiswa</Link>
             </>

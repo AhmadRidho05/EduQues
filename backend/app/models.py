@@ -226,3 +226,36 @@ class KelasMember(Base):
     kelas_id: Mapped[int] = mapped_column(ForeignKey("kelas.id"))
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     joined_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class Tes(Base):
+    """Tes harian terjadwal — hanya bisa dikerjakan pada rentang waktu tertentu,
+    hasilnya dinilai. Soal diambil acak dari bank soal kelas."""
+    __tablename__ = "tes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kelas_id: Mapped[int] = mapped_column(ForeignKey("kelas.id"))
+    judul: Mapped[str] = mapped_column(String(150))
+    jumlah_soal: Mapped[int] = mapped_column(Integer, default=10)
+    waktu_mulai: Mapped[datetime] = mapped_column(DateTime)
+    waktu_selesai: Mapped[datetime] = mapped_column(DateTime)
+    dibuat_oleh: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class TesAttempt(Base):
+    """Pengerjaan tes oleh seorang mahasiswa (satu kali per tes)."""
+    __tablename__ = "tes_attempts"
+    __table_args__ = (UniqueConstraint("tes_id", "user_id", name="uq_tes_attempt"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tes_id: Mapped[int] = mapped_column(ForeignKey("tes.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    question_order: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    idx: Mapped[int] = mapped_column(Integer, default=0)
+    benar_count: Mapped[int] = mapped_column(Integer, default=0)
+    selesai: Mapped[bool] = mapped_column(Boolean, default=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    user: Mapped["User"] = relationship()
