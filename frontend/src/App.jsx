@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
+import Beranda from './pages/Beranda'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Peta from './pages/Peta'
@@ -19,25 +20,19 @@ import KelolaSoal from './pages/KelolaSoal'
 import KelolaMateri from './pages/KelolaMateri'
 import Mahasiswa from './pages/Mahasiswa'
 
-// Arahkan halaman utama sesuai peran.
-function HomeRedirect() {
-  // Landing ke "Kelas Saya" — pintu masuk sebelum ke konten kelas.
-  return <Navigate to="/kelas" replace />
-}
-
 export default function App() {
   const { user } = useAuth()
   return (
     <div className="app-shell">
     <Routes>
       {/* Halaman publik */}
-      <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
-      <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register />} />
+      <Route path="/" element={user ? <Navigate to="/kelas" replace /> : <Beranda />} />
+      <Route path="/login" element={user ? <Navigate to="/kelas" replace /> : <Login />} />
+      <Route path="/register" element={user ? <Navigate to="/kelas" replace /> : <Register />} />
 
       {/* Halaman yang butuh login */}
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
-          <Route path="/" element={<HomeRedirect />} />
           <Route path="/kelas" element={<KelasSaya />} />
           <Route path="/peta" element={<Peta />} />
           <Route path="/level/:id" element={<Level />} />
