@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_user, require_dosen
+from . import materials
 
 router = APIRouter(prefix="/kelas", tags=["kelas"])
 
@@ -172,10 +173,43 @@ def hapus_atau_keluar(kid: int, db: Session = Depends(get_db),
     k = db.get(models.Kelas, kid)
     if not k:
         raise HTTPException(404, "Kelas tidak ditemukan.")
-    # Dosen pemilik -> hapus kelas beserta keanggotaannya
+    # Dosen pemilik -> hapus kelas BESERTA semua data turunannya (#8).
+    # Tanpa ini, level/soal/materi/progress/attempt/tes jadi "yatim":
+    # menumpuk diam-diam di SQLite, dan bikin IntegrityError 500 di PostgreSQL.
     if user.role == models.ROLE_DOSEN and k.dosen_id == user.id:
-        db.query(models.KelasMember).filter_by(kelas_id=kid).delete()
-        # jangan biarkan ada user yang "kelas aktif"-nya menunjuk kelas terhapus
+        level_ids = [r[0] for r in
+                     db.query(models.Level.id).filter_by(kelas_id=kid).all()]
+        q_ids = ([r[0] for r in db.query(models.Question.id)
+                  .filter(models.Question.level_id.in_(level_ids)).all()]
+                 if level_ids else [])
+        tes_ids = [r[0] for r in
+                   db.query(models.Tes.id).filter_by(kelas_id=kid).all()]
+
+        # 1) data mahasiswa yang menaut ke soal/level kelas ini
+        if q_ids:
+            db.query(models.Answer).filter(
+                models.Answer.question_id.in_(q_ids)).delete(synchronize_session=False)
+        if level_ids:
+            db.query(models.Progress).filter(
+                models.Progress.level_id.in_(level_ids)).delete(synchronize_session=False)
+            db.query(models.LevelAttempt).filter(
+                models.LevelAttempt.level_id.in_(level_ids)).delete(synchronize_session=False)
+        # 2) tes + attempt-nya
+        if tes_ids:
+            db.query(models.TesAttempt).filter(
+                models.TesAttempt.tes_id.in_(tes_ids)).delete(synchronize_session=False)
+            db.query(models.Tes).filter_by(kelas_id=kid).delete(synchronize_session=False)
+        # 3) materi + file PDF fisiknya
+        for m in db.query(models.Material).filter_by(kelas_id=kid).all():
+            materials.hapus_file_materi(m)
+        db.query(models.Material).filter_by(kelas_id=kid).delete(synchronize_session=False)
+        # 4) soal lalu level
+        if q_ids:
+            db.query(models.Question).filter(
+                models.Question.id.in_(q_ids)).delete(synchronize_session=False)
+        db.query(models.Level).filter_by(kelas_id=kid).delete(synchronize_session=False)
+        # 5) keanggotaan + reset "kelas aktif" yang menunjuk kelas ini
+        db.query(models.KelasMember).filter_by(kelas_id=kid).delete(synchronize_session=False)
         db.query(models.User).filter(models.User.current_kelas_id == kid).update(
             {"current_kelas_id": None}, synchronize_session=False)
         db.delete(k)

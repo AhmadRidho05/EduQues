@@ -28,6 +28,15 @@ MAX_MB = 10
 router = APIRouter(prefix="/materials", tags=["materi"])
 
 
+def hapus_file_materi(m: models.Material):
+    """Hapus file fisik PDF milik sebuah materi (kalau ada).
+    Dipakai saat materi dihapus maupun saat kelasnya dihapus."""
+    if m.tipe == "pdf" and m.file_stored:
+        p = os.path.join(UPLOAD_DIR, m.file_stored)
+        if os.path.exists(p):
+            os.remove(p)
+
+
 def _to_dict(m: models.Material) -> dict:
     return {
         "id": m.id, "judul": m.judul, "tipe": m.tipe,
@@ -106,10 +115,7 @@ def delete_material(mid: int, db: Session = Depends(get_db),
     m = db.get(models.Material, mid)
     if not m:
         raise HTTPException(404, "Materi tidak ditemukan.")
-    if m.tipe == "pdf" and m.file_stored:
-        p = os.path.join(UPLOAD_DIR, m.file_stored)
-        if os.path.exists(p):
-            os.remove(p)
+    hapus_file_materi(m)
     db.delete(m)
     db.commit()
     return {"ok": True}

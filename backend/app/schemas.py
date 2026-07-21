@@ -91,6 +91,13 @@ class AttemptAnswerIn(BaseModel):
     jawaban: str
 
 
+class BossAnswerIn(BaseModel):
+    """Jawaban pertarungan boss (server-authoritative).
+    `habis=True` dikirim saat waktu per-soal habis (dihitung salah tanpa cek)."""
+    jawaban: str = ""
+    habis: bool = False
+
+
 class AnswerResult(BaseModel):
     benar: bool
     jawaban_benar: str | None = None  # ditampilkan setelah dijawab (untuk belajar)

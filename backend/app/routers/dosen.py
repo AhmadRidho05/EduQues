@@ -121,12 +121,18 @@ def delete_question(qid: int, db: Session = Depends(get_db)):
 def list_students(db: Session = Depends(get_db),
                   kelas_id: int = Depends(require_kelas)):
     ids = _anggota_ids(db, kelas_id)
+    # #15: hitung bintang & bab selesai HANYA dari level kelas ini,
+    # supaya progres kelas lain tidak ikut terhitung.
+    level_ids = [r[0] for r in
+                 db.query(models.Level.id).filter_by(kelas_id=kelas_id).all()]
     students = (db.query(models.User)
                 .filter(models.User.id.in_(ids or [-1]))
                 .order_by(models.User.nama).all())
     out = []
     for s in students:
-        rows = db.query(models.Progress).filter_by(user_id=s.id).all()
+        rows = (db.query(models.Progress)
+                .filter(models.Progress.user_id == s.id,
+                        models.Progress.level_id.in_(level_ids or [-1])).all())
         pl, _, _ = game.level_info(s.xp)
         out.append({
             "id": s.id, "nama": s.nama, "email": s.email,

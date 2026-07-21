@@ -12,6 +12,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import game, models, schemas
@@ -28,12 +29,14 @@ def _progress_map(db: Session, user_id: int) -> dict[int, models.Progress]:
 
 
 def _is_unlocked(level, prog_map, levels_by_urutan) -> bool:
-    """Level terbuka kalau level dengan urutan sebelumnya sudah dapat bintang."""
-    if level.urutan <= 1:
+    """Terbuka kalau level DENGAN URUTAN TERBESAR DI BAWAHNYA sudah dapat bintang.
+    Pakai 'level sebelumnya yang benar-benar ada' (bukan urutan-1) supaya kalau
+    ada urutan yang bolong (mis. bab dihapus), bab berikutnya TIDAK ikut terbuka
+    dengan sendirinya (#16)."""
+    prev_urutans = [u for u in levels_by_urutan if u < level.urutan]
+    if not prev_urutans:            # tidak ada bab di bawahnya -> bab paling awal
         return True
-    prev = levels_by_urutan.get(level.urutan - 1)
-    if not prev:
-        return True
+    prev = levels_by_urutan[max(prev_urutans)]
     p = prog_map.get(prev.id)
     return bool(p and p.stars > 0)
 
@@ -191,70 +194,146 @@ def level_detail(level_id: int, db: Session = Depends(get_db),
     )
 
 
-@router.get("/boss/{level_id}")
-def boss_battle(level_id: int, db: Session = Depends(get_db),
-                user: models.User = Depends(get_current_user),
-                kelas_id: int = Depends(require_kelas)):
-    """Data pertarungan boss: soal diambil ACAK dari level-level di `pool`
-    (kecuali soal tulis-kode, biar cocok untuk soal berwaktu)."""
+# ---------- boss (server-authoritative) ----------
+def _boss_or_404(db, level_id, user, kelas_id):
+    """Pastikan level boss milik kelas aktif & sudah terbuka. Kembalikan level."""
     lv = db.get(models.Level, level_id)
     if not lv or not lv.is_boss or lv.kelas_id != kelas_id:
         raise HTTPException(404, "Level boss tidak ditemukan")
-
     levels = (db.query(models.Level).filter(models.Level.kelas_id == kelas_id)
               .order_by(models.Level.urutan).all())
     by_urutan = {x.urutan: x for x in levels}
     if not _is_unlocked(lv, _progress_map(db, user.id), by_urutan):
         raise HTTPException(403, "Level masih terkunci")
+    return lv
 
-    pool = lv.pool or []
-    qs = (db.query(models.Question)
-          .join(models.Level, models.Question.level_id == models.Level.id)
-          .filter(models.Level.kelas_id == kelas_id,
-                  models.Level.urutan.in_(pool),
-                  models.Question.tipe != "code")
-          .all())
-    random.shuffle(qs)
+
+def _boss_pool_qids(db, lv, kelas_id) -> list[int]:
+    """Id soal untuk boss: dari level-level di `pool`, tanpa soal tulis-kode."""
+    rows = (db.query(models.Question.id)
+            .join(models.Level, models.Question.level_id == models.Level.id)
+            .filter(models.Level.kelas_id == kelas_id,
+                    models.Level.urutan.in_(lv.pool or []),
+                    models.Question.tipe != "code").all())
+    return [r[0] for r in rows]
+
+
+def _boss_current_q(db, a):
+    order = a.question_order or []
+    return db.get(models.Question, order[a.idx % len(order)]) if order else None
+
+
+def _boss_state(db, lv, a) -> dict:
+    """Snapshot pertarungan dari data server (dipakai saat lanjut/refresh).
+    a.score = jumlah pukulan (jawaban benar) -> HP boss = hp - pukulan."""
+    boss_hp = max(0, (lv.hp or 0) - a.score)
+    q = _boss_current_q(db, a)
+    return {"active": True, "boss_hp": boss_hp, "lives": a.lives,
+            "max_lives": lv.lives, "question": _question_public(q) if q else None}
+
+
+@router.get("/boss/{level_id}")
+def boss_info(level_id: int, db: Session = Depends(get_db),
+              user: models.User = Depends(get_current_user),
+              kelas_id: int = Depends(require_kelas)):
+    """Info boss untuk layar intro + status pertarungan tersimpan (kalau ada)."""
+    lv = _boss_or_404(db, level_id, user, kelas_id)
+    a = db.query(models.LevelAttempt).filter_by(
+        user_id=user.id, level_id=level_id).first()
     return {
         "id": lv.id, "nama": lv.nama, "emoji": lv.emoji, "materi": lv.materi,
-        "hp": lv.hp, "timer": lv.timer,
-        "questions": [
-            {"id": q.id, "tipe": q.tipe, "q": q.q, "hint": q.hint,
-             "opts": q.opts, "code": q.code, "starter": q.starter}
-            for q in qs
-        ],
+        "hp": lv.hp, "timer": lv.timer, "lives": lv.lives,
+        "ada_soal": len(_boss_pool_qids(db, lv, kelas_id)) > 0,
+        "attempt": _boss_state(db, lv, a) if a else None,
     }
 
 
-@router.post("/answer", response_model=schemas.AnswerResult)
-def check_answer(data: schemas.AnswerIn, db: Session = Depends(get_db),
-                 user: models.User = Depends(get_current_user)):
-    q = db.get(models.Question, data.question_id)
-    if not q:
-        raise HTTPException(404, "Soal tidak ditemukan")
+@router.post("/boss/{level_id}/start")
+def boss_start(level_id: int, db: Session = Depends(get_db),
+               user: models.User = Depends(get_current_user),
+               kelas_id: int = Depends(require_kelas)):
+    """Mulai / ulangi pertarungan boss (server pegang HP boss & nyawa)."""
+    lv = _boss_or_404(db, level_id, user, kelas_id)
+    order = _boss_pool_qids(db, lv, kelas_id)
+    if not order:
+        raise HTTPException(400, "Boss ini belum ada soal — bab sebelumnya masih kosong.")
+    random.shuffle(order)
+    old = db.query(models.LevelAttempt).filter_by(
+        user_id=user.id, level_id=level_id).first()
+    if old:
+        db.delete(old)
+        db.commit()
+    a = models.LevelAttempt(user_id=user.id, level_id=level_id, idx=0,
+                            lives=lv.lives, score=0, combo=0, max_combo=0,
+                            question_order=order)
+    db.add(a)
+    try:                       # tahan dobel-klik "Mulai" (race uq_level_attempt)
+        db.commit()
+        db.refresh(a)
+    except IntegrityError:
+        db.rollback()
+        a = db.query(models.LevelAttempt).filter_by(
+            user_id=user.id, level_id=level_id).first()
+        if not a:
+            raise HTTPException(500, "Gagal memulai pertarungan, coba lagi.")
+    return _boss_state(db, lv, a)
 
-    benar = _check_answer(q, data.jawaban)
-    db.add(models.Answer(user_id=user.id, question_id=q.id,
-                         jawaban=data.jawaban, benar=benar))
-    db.commit()
 
-    jawaban_benar = str(q.ans[0]) if (not benar and q.ans) else None
-    return schemas.AnswerResult(benar=benar, jawaban_benar=jawaban_benar)
+@router.post("/boss/{level_id}/answer")
+def boss_answer(level_id: int, data: schemas.BossAnswerIn,
+                db: Session = Depends(get_db),
+                user: models.User = Depends(get_current_user),
+                kelas_id: int = Depends(require_kelas)):
+    """Jawab 1 soal boss. Server yang menghitung HP boss & nyawa -> refresh tidak
+    mereset, dan kemenangan TIDAK bisa dipalsukan dari klien (menutup #4 & #13)."""
+    lv = _boss_or_404(db, level_id, user, kelas_id)
+    a = db.query(models.LevelAttempt).filter_by(
+        user_id=user.id, level_id=level_id).first()
+    if not a:
+        raise HTTPException(400, "Belum ada pertarungan aktif. Mulai dulu.")
+    q = _boss_current_q(db, a)
+    if q is None:  # soal pool dihapus/berubah di tengah -> reset supaya tak macet
+        db.delete(a)
+        db.commit()
+        raise HTTPException(400, "Soal boss berubah. Mulai ulang pertarungannya ya.")
 
+    if data.habis:                       # waktu per-soal habis -> salah tanpa cek
+        benar = False
+    else:
+        benar = _check_answer(q, data.jawaban)
+        db.add(models.Answer(user_id=user.id, question_id=q.id,
+                             jawaban=data.jawaban, benar=benar))
+    if benar:
+        a.score += 1                     # 1 pukulan ke boss
+        a.combo += 1
+        a.max_combo = max(a.max_combo, a.combo)
+    else:
+        a.combo = 0
+        a.lives -= 1
+    a.idx += 1
 
-@router.post("/levels/{level_id}/complete", response_model=schemas.CompleteResult)
-def complete_level(level_id: int, data: schemas.CompleteIn,
-                   db: Session = Depends(get_db),
-                   user: models.User = Depends(get_current_user)):
-    lv = db.get(models.Level, level_id)
-    if not lv:
-        raise HTTPException(404, "Level tidak ditemukan")
+    boss_hp = max(0, (lv.hp or 0) - a.score)
+    lives = a.lives
+    status, reward = "active", None
+    if lives <= 0:                       # nyawa habis -> kalah
+        status = "kalah"
+        db.delete(a)
+        db.commit()
+    elif boss_hp <= 0:                   # HP boss habis -> menang
+        status = "menang"
+        stars = max(1, min(3, lives))
+        score_val = (lv.hp or 0) * 100
+        reward = _finalize(db, user, lv, stars, score_val)
+        reward["score"] = score_val
+        db.delete(a)
+        db.commit()
+    else:
+        db.commit()
 
-    r = _finalize(db, user, lv, data.stars, data.score)
-    return schemas.CompleteResult(
-        xp=r["xp"], koin=r["koin"], player_level=r["player_level"],
-        rank=r["rank"], new_badges=r["new_badges"],
-    )
+    nq = _boss_current_q(db, a) if status == "active" else None
+    return {"benar": benar, "boss_hp": boss_hp, "lives": max(0, lives),
+            "status": status, "question": _question_public(nq) if nq else None,
+            "reward": reward}
 
 
 @router.get("/levels/{level_id}/attempt")
@@ -307,8 +386,16 @@ def start_attempt(level_id: int, db: Session = Depends(get_db),
                             idx=0, lives=lv.lives, score=0, combo=0, max_combo=0,
                             question_order=order)
     db.add(a)
-    db.commit()
-    db.refresh(a)
+    try:                       # tahan dobel-klik "Mulai" (race uq_level_attempt)
+        db.commit()
+        db.refresh(a)
+    except IntegrityError:
+        db.rollback()
+        a = db.query(models.LevelAttempt).filter_by(
+            user_id=user.id, level_id=level_id).first()
+        if not a:
+            raise HTTPException(500, "Gagal memulai level, coba lagi.")
+    order = a.question_order or order
     return {"active": True, **_attempt_state(a, len(order)),
             "questions": _build_questions(db, order)}
 
@@ -379,10 +466,15 @@ def attempt_answer(level_id: int, data: schemas.AttemptAnswerIn,
 
 @router.get("/leaderboard", response_model=list[schemas.LeaderboardRow])
 def leaderboard(db: Session = Depends(get_db),
-                user: models.User = Depends(get_current_user)):
-    top = db.query(models.User).filter(
-        models.User.role == models.ROLE_MAHASISWA) \
-        .order_by(models.User.xp.desc()).limit(20).all()
+                user: models.User = Depends(get_current_user),
+                kelas_id: int = Depends(require_kelas)):
+    # #15: hanya tampilkan ANGGOTA kelas aktif -> nama mahasiswa tak bocor antar kelas
+    member_ids = [m.user_id for m in
+                  db.query(models.KelasMember).filter_by(kelas_id=kelas_id).all()]
+    top = (db.query(models.User)
+           .filter(models.User.role == models.ROLE_MAHASISWA,
+                   models.User.id.in_(member_ids or [-1]))
+           .order_by(models.User.xp.desc()).limit(20).all())
     rows = []
     for u in top:
         pl, _, _ = game.level_info(u.xp)

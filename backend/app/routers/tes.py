@@ -9,6 +9,7 @@ import random
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -31,11 +32,31 @@ def _fmt(dt):
     return dt.strftime("%d %b %Y, %H:%M") if dt else None
 
 
+def _finalize_expired(db, t, a):
+    """Kalau waktu tes sudah lewat tapi attempt belum ditutup (mis. mahasiswa
+    keburu tutup browser), kunci otomatis sekarang -> nilai tidak 'None' selamanya."""
+    if a and not a.selesai and datetime.now() > t.waktu_selesai:
+        a.selesai = True
+        a.submitted_at = datetime.now()
+        db.commit()
+    return a
+
+
+def _soal_view(db, qid) -> dict:
+    """Soal untuk peserta; kalau soal sudah dihapus dosen di tengah tes,
+    kembalikan placeholder (bukan crash)."""
+    q = db.get(models.Question, qid)
+    if not q:
+        return {"id": 0, "tipe": "mc", "q": "(soal ini sudah tidak tersedia)",
+                "hint": "", "opts": [], "code": None, "starter": None}
+    return _question_public(q)
+
+
 def _attempt_view(db, t, a) -> dict:
     order = a.question_order or []
     return {
         "judul": t.judul, "idx": a.idx, "total": len(order), "selesai": a.selesai,
-        "questions": [_question_public(db.get(models.Question, qid)) for qid in order],
+        "questions": [_soal_view(db, qid) for qid in order],
     }
 
 
@@ -70,6 +91,7 @@ def list_tes(db: Session = Depends(get_db),
         if user.role == models.ROLE_MAHASISWA:
             a = db.query(models.TesAttempt).filter_by(
                 tes_id=t.id, user_id=user.id).first()
+            _finalize_expired(db, t, a)  # #11: kunci attempt yang kadaluwarsa
             n = len(a.question_order or []) if a else 0
             item["dikerjakan"] = bool(a and a.selesai)
             item["nilai"] = (round(a.benar_count / n * 100)
@@ -114,11 +136,22 @@ def mulai_tes(tid: int, db: Session = Depends(get_db),
                       models.Question.tipe != "code").all())
         random.shuffle(qs)
         order = [q.id for q in qs[:t.jumlah_soal]]
+        if not order:  # #9: bank soal kelas masih kosong -> jangan simpan attempt macet
+            raise HTTPException(
+                400, "Bank soal kelas ini masih kosong, tes belum bisa dikerjakan. "
+                     "Hubungi dosenmu untuk mengisi soal dulu.")
         a = models.TesAttempt(tes_id=tid, user_id=user.id,
                               question_order=order, idx=0, benar_count=0)
         db.add(a)
-        db.commit()
-        db.refresh(a)
+        try:
+            db.commit()
+            db.refresh(a)
+        except IntegrityError:  # #12: dua klik 'mulai' bersamaan -> pakai yang sudah ada
+            db.rollback()
+            a = db.query(models.TesAttempt).filter_by(
+                tes_id=tid, user_id=user.id).first()
+            if not a:
+                raise HTTPException(500, "Gagal memulai tes, coba lagi.")
     return _attempt_view(db, t, a)
 
 
@@ -131,6 +164,7 @@ def get_tes_attempt(tid: int, db: Session = Depends(get_db),
     a = db.query(models.TesAttempt).filter_by(tes_id=tid, user_id=user.id).first()
     if not a:
         return {"ada": False}
+    _finalize_expired(db, t, a)  # #11
     return {"ada": True, **_attempt_view(db, t, a)}
 
 
@@ -155,12 +189,16 @@ def jawab_tes(tid: int, data: schemas.TesJawabIn, db: Session = Depends(get_db),
         raise HTTPException(400, "Semua soal sudah dijawab.")
 
     q = db.get(models.Question, order[a.idx])
-    benar = _check_answer(q, data.jawaban)
-    db.add(models.Answer(user_id=user.id, question_id=q.id,
-                         jawaban=data.jawaban, benar=benar))
-    if benar:
-        a.benar_count += 1
-    a.idx += 1
+    if q is None:  # #10: soal dihapus dosen di tengah tes -> lewati, jangan crash
+        a.idx += 1
+        benar = False
+    else:
+        benar = _check_answer(q, data.jawaban)
+        db.add(models.Answer(user_id=user.id, question_id=q.id,
+                             jawaban=data.jawaban, benar=benar))
+        if benar:
+            a.benar_count += 1
+        a.idx += 1
 
     status, nilai = "lanjut", None
     if a.idx >= total:
@@ -181,6 +219,7 @@ def hasil_tes(tid: int, db: Session = Depends(get_db),
         raise HTTPException(404, "Tes tidak ditemukan.")
     rows = []
     for a in db.query(models.TesAttempt).filter_by(tes_id=tid).all():
+        _finalize_expired(db, t, a)  # #11
         total = len(a.question_order or [])
         rows.append({
             "nama": a.user.nama if a.user else "?",
