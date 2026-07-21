@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import RoleRoute from './components/RoleRoute'
 import Layout from './components/Layout'
 import Beranda from './pages/Beranda'
 import Login from './pages/Login'
@@ -35,19 +36,28 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
           <Route path="/kelas" element={<Navigate to="/profil" replace />} />
-          <Route path="/peta" element={<Peta />} />
-          <Route path="/level/:id" element={<Level />} />
-          <Route path="/leaderboard" element={<Leaderboard />} />
+          {/* Bisa diakses dua peran */}
           <Route path="/profil" element={<Profil />} />
-          <Route path="/lab" element={<Lab />} />
-          <Route path="/materi" element={<Materi />} />
-          <Route path="/tes-harian" element={<TesHarian />} />
-          <Route path="/tes-harian/:id" element={<TesKerjakan />} />
-          <Route path="/dosen" element={<DosenDashboard />} />
-          <Route path="/dosen/tes" element={<KelolaTes />} />
-          <Route path="/dosen/soal" element={<KelolaSoal />} />
-          <Route path="/dosen/materi" element={<KelolaMateri />} />
-          <Route path="/dosen/mahasiswa" element={<Mahasiswa />} />
+
+          {/* Khusus mahasiswa */}
+          <Route element={<RoleRoute role="mahasiswa" />}>
+            <Route path="/peta" element={<Peta />} />
+            <Route path="/level/:id" element={<Level />} />
+            <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/lab" element={<Lab />} />
+            <Route path="/materi" element={<Materi />} />
+            <Route path="/tes-harian" element={<TesHarian />} />
+            <Route path="/tes-harian/:id" element={<TesKerjakan />} />
+          </Route>
+
+          {/* Khusus dosen */}
+          <Route element={<RoleRoute role="dosen" />}>
+            <Route path="/dosen" element={<DosenDashboard />} />
+            <Route path="/dosen/tes" element={<KelolaTes />} />
+            <Route path="/dosen/soal" element={<KelolaSoal />} />
+            <Route path="/dosen/materi" element={<KelolaMateri />} />
+            <Route path="/dosen/mahasiswa" element={<Mahasiswa />} />
+          </Route>
         </Route>
       </Route>
 

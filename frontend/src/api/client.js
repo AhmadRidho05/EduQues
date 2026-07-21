@@ -12,12 +12,17 @@ client.interceptors.request.use((config) => {
   return config
 })
 
-// Kalau backend bilang "belum pilih kelas" (409), arahkan ke halaman Kelas.
+// Kalau backend bilang "belum pilih kelas" (409), arahkan ke Profil untuk
+// memilih kelas — sambil menitip pesan biar user paham kenapa dipindah.
 client.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err?.response?.status === 409 &&
         !window.location.pathname.startsWith('/profil')) {
+      sessionStorage.setItem(
+        'kelasHint',
+        err?.response?.data?.detail ||
+          'Pilih kelas dulu untuk membuka menu ini.')
       window.location.href = '/profil'
     }
     return Promise.reject(err)

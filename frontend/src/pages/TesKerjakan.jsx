@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import client from '../api/client'
 import { burstConfetti } from '../confetti'
+import Icon from '../components/Icon'
 
 export default function TesKerjakan() {
   const { id } = useParams()
@@ -44,49 +45,112 @@ export default function TesKerjakan() {
     if (fb.status !== 'selesai') setIdx(fb.idx)
   }
 
+  // ---- Error fatal ----
   if (err) return (
-    <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
-      <p>{err}</p>
-      <button className="btn btn-primary" onClick={() => nav('/tes-harian')}>← Daftar Tes</button>
+    <div className="card card-accent fade-in" style={{ maxWidth: 460, margin: '2rem auto', padding: '2.2rem 1.8rem', textAlign: 'center' }}>
+      <div className="empty-ico" style={{ color: 'var(--danger)' }}><Icon name="info" size={28} /></div>
+      <h2 className="grad-text" style={{ margin: '0 0 .3rem', fontSize: '1.3rem' }}>Terjadi Masalah</h2>
+      <p className="muted" style={{ margin: '0 0 1.4rem' }}>{err}</p>
+      <button className="btn btn-primary" onClick={() => nav('/tes-harian')}>
+        <Icon name="kiri" size={16} /> Kembali ke Daftar Tes
+      </button>
     </div>
   )
-  if (!data) return <p className="muted">Memuat tes…</p>
+
+  // ---- Memuat ----
+  if (!data) return (
+    <div className="fade-in">
+      <div className="card" style={{ padding: '1.2rem 1.4rem', marginBottom: '1rem' }}>
+        <div className="flex items-center justify-between" style={{ gap: '.8rem' }}>
+          <div className="skeleton" style={{ height: 20, width: '45%' }} />
+          <div className="skeleton" style={{ height: 26, width: 120, borderRadius: 999 }} />
+        </div>
+        <div className="skeleton" style={{ height: 10, width: '100%', marginTop: '1rem', borderRadius: 999 }} />
+      </div>
+      <div className="card" style={{ padding: '1.6rem' }}>
+        <div className="skeleton" style={{ height: 24, width: '70%' }} />
+        <div className="skeleton" style={{ height: 96, width: '100%', marginTop: '1rem' }} />
+        <div className="flex" style={{ flexDirection: 'column', gap: '.6rem', marginTop: '1.4rem' }}>
+          <div className="skeleton" style={{ height: 44, width: '100%' }} />
+          <div className="skeleton" style={{ height: 44, width: '100%' }} />
+          <div className="skeleton" style={{ height: 44, width: '100%' }} />
+        </div>
+      </div>
+    </div>
+  )
 
   // ---- Hasil akhir ----
   if (hasil) {
+    const pct = hasil.total ? Math.round((hasil.benar_count / hasil.total) * 100) : 0
     return (
-      <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
-        <div style={{ fontSize: '3rem' }}>🎯</div>
-        <h1>Tes Selesai!</h1>
-        <div style={{ fontSize: '3rem', fontWeight: 800, color: 'var(--primary)', margin: '.4rem 0' }}>
+      <div className="card card-accent fade-in" style={{ maxWidth: 460, margin: '2rem auto', padding: '2.4rem 1.8rem', textAlign: 'center' }}>
+        <div className="empty-ico anim-pop" style={{ fontSize: '2rem' }}>🎯</div>
+        <h1 style={{ margin: '0 0 .2rem', fontSize: '1.5rem' }}>Tes Selesai!</h1>
+        <div className="grad-text" style={{ fontSize: '3rem', fontWeight: 800, lineHeight: 1.1, margin: '.4rem 0' }}>
           {hasil.nilai}
         </div>
-        <p className="muted">Benar {hasil.benar_count} dari {hasil.total} soal</p>
-        <button className="btn btn-primary" style={{ marginTop: '1rem' }}
-                onClick={() => nav('/tes-harian')}>← Kembali ke Daftar Tes</button>
+        <p className="muted" style={{ margin: '0 0 1.1rem' }}>
+          Benar {hasil.benar_count} dari {hasil.total} soal
+        </p>
+        <div className="bar bar-success" style={{ maxWidth: 260, margin: '0 auto 1.6rem' }}>
+          <i style={{ width: `${pct}%` }} />
+        </div>
+        <button className="btn btn-primary" onClick={() => nav('/tes-harian')}>
+          <Icon name="kiri" size={16} /> Kembali ke Daftar Tes
+        </button>
       </div>
     )
   }
 
   // ---- Mengerjakan ----
+  const progres = data.total ? (idx / data.total) * 100 : 0
   return (
     <div>
-      <div className="flex items-center justify-between" style={{ marginBottom: '1rem' }}>
-        <span style={{ fontWeight: 700 }}>{data.judul}</span>
-        <span className="muted">Soal {idx + 1} / {data.total}</span>
+      {/* Header pengerjaan */}
+      <div className="card" style={{ padding: '1.2rem 1.4rem', marginBottom: '1rem' }}>
+        <div className="flex items-center justify-between" style={{ gap: '.8rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', minWidth: 0 }}>
+            <span className="stat-ico" style={{ width: 36, height: 36, fontSize: '1rem', color: 'var(--primary)' }}>
+              <Icon name="tes" size={18} />
+            </span>
+            <span style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {data.judul}
+            </span>
+          </div>
+          <span className="pill pill-accent">Soal {idx + 1} dari {data.total}</span>
+        </div>
+        <div className="bar" style={{ marginTop: '1rem' }}>
+          <i style={{ width: `${progres}%` }} />
+        </div>
       </div>
 
-      <div className="card" style={{ padding: '1.6rem' }}>
-        <h2 style={{ marginTop: 0, fontSize: '1.15rem' }}>{soal.q}</h2>
+      {/* Kartu soal */}
+      <div key={idx} className="card fade-in" style={{ padding: '1.6rem' }}>
+        <h2 style={{ marginTop: 0, marginBottom: 0, fontSize: '1.15rem', fontWeight: 600, lineHeight: 1.5 }}>
+          {soal.q}
+        </h2>
         {soal.code && <pre className="code" style={{ margin: '1rem 0' }}>{soal.code}</pre>}
 
         {soal.tipe === 'mc' && (
           <div className="flex" style={{ flexDirection: 'column', gap: '.6rem', marginTop: '1rem' }}>
-            {soal.opts.map((opt) => (
-              <button key={opt} className="btn btn-ghost" style={{ textAlign: 'left' }}
-                      disabled={!!feedback || busy}
-                      onClick={() => { setAnswer(opt); jawab(opt) }}>{opt}</button>
-            ))}
+            {soal.opts.map((opt) => {
+              const dipilih = feedback && opt === answer
+              const tone = dipilih ? (feedback.benar ? 'var(--success)' : 'var(--danger)') : null
+              return (
+                <button key={opt} className="btn btn-ghost"
+                        style={{
+                          textAlign: 'left', justifyContent: 'flex-start', width: '100%',
+                          ...(tone ? {
+                            borderColor: tone, color: tone,
+                            background: `color-mix(in srgb, ${tone} 10%, transparent)`,
+                          } : {}),
+                        }}
+                        disabled={!!feedback || busy}
+                        onClick={() => { setAnswer(opt); jawab(opt) }}>
+                  {opt}
+                </button>
+              )
+            })}
           </div>
         )}
 
@@ -97,24 +161,35 @@ export default function TesKerjakan() {
                    placeholder="Ketik jawabanmu…" onChange={(e) => setAnswer(e.target.value)} />
             {!feedback && (
               <button className="btn btn-primary" style={{ marginTop: '.8rem' }}
-                      disabled={!answer.trim() || busy}>Jawab</button>
+                      disabled={!answer.trim() || busy}>
+                <Icon name="cek" size={16} /> Jawab
+              </button>
             )}
           </form>
         )}
 
         {feedback && (
           <div style={{ marginTop: '1.2rem' }}>
-            <p style={{ fontWeight: 700, color: feedback.benar ? 'var(--success)' : 'var(--danger)' }}>
-              {feedback.benar ? '✅ Benar' : '❌ Salah'}
+            <p className={feedback.benar ? 'anim-pop' : 'anim-shake'}
+               style={{
+                 display: 'flex', alignItems: 'center', gap: '.4rem', fontWeight: 700,
+                 margin: '0 0 .9rem', color: feedback.benar ? 'var(--success)' : 'var(--danger)',
+               }}>
+              <Icon name={feedback.benar ? 'cek' : 'silang'} size={18} />
+              {feedback.benar ? 'Benar' : 'Salah'}
             </p>
             <button className="btn btn-primary" onClick={lanjut}>
-              {feedback.status === 'selesai' ? 'Lihat Nilai →' : 'Lanjut →'}
+              {feedback.status === 'selesai' ? 'Lihat Nilai' : 'Lanjut'}
+              <Icon name="kanan" size={16} />
             </button>
           </div>
         )}
       </div>
-      <p className="muted" style={{ fontSize: '.78rem', marginTop: '1rem' }}>
-        ⚠️ Tes dinilai. Jawaban tidak bisa diubah setelah dikirim.
+
+      {/* Peringatan permanen */}
+      <p className="muted" style={{ display: 'flex', alignItems: 'center', gap: '.4rem', fontSize: '.78rem', marginTop: '1rem' }}>
+        <Icon name="info" size={14} />
+        Tes dinilai. Jawaban tidak bisa diubah setelah dikirim.
       </p>
     </div>
   )

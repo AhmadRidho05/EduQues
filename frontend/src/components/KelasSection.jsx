@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import client from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import Icon from './Icon'
 
 // Bagian "Kelas" di halaman Profil: pilih/masuk kelas, gabung (mahasiswa),
 // atau buat kelas (dosen). Menu fitur lain baru terbuka setelah masuk kelas.
@@ -18,11 +19,20 @@ export default function KelasSection() {
     matkul: '', kampus: '', prodi: '', semester: '', kelas_label: '', pakai_template: false,
   })
   const [kode, setKode] = useState('')
+  const [memuat, setMemuat] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => { muat() }, [])
   function muat() {
-    client.get('/kelas/saya').then((r) => setKelas(r.data)).catch(() => {})
-    client.get('/kelas/aktif').then((r) => setAktif(r.data.aktif ? r.data : null)).catch(() => {})
+    setMemuat(true)
+    setError('')
+    client.get('/kelas/aktif')
+      .then((r) => setAktif(r.data.aktif ? r.data : null))
+      .catch(() => {})
+    client.get('/kelas/saya')
+      .then((r) => setKelas(r.data))
+      .catch((err) => setError(err?.response?.data?.detail || 'Gagal memuat daftar kelas.'))
+      .finally(() => setMemuat(false))
   }
   const setF = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
@@ -52,18 +62,26 @@ export default function KelasSection() {
   }
 
   async function keluarHapus(k) {
-    const p = dosen ? `Hapus kelas "${k.matkul}"?` : `Keluar dari kelas "${k.matkul}"?`
+    const p = dosen
+      ? `Hapus kelas "${k.matkul}"? Semua soal, materi, tes, dan nilai mahasiswa di kelas ini ikut terhapus permanen. Lanjut?`
+      : `Keluar dari kelas "${k.matkul}"? Progres kamu di kelas ini akan hilang. Lanjut?`
     if (!window.confirm(p)) return
-    await client.delete(`/kelas/${k.id}`); muat()
+    try {
+      await client.delete(`/kelas/${k.id}`)
+      muat()
+    } catch (err) {
+      alert(err?.response?.data?.detail || (dosen ? 'Gagal menghapus kelas.' : 'Gagal keluar dari kelas.'))
+    }
   }
 
   return (
     <div>
       <div className="flex items-center justify-between" style={{ flexWrap: 'wrap', gap: '.6rem' }}>
-        <h2 style={{ fontSize: '1.2rem', margin: 0 }}>🎓 Kelas Saya</h2>
-        <button className="btn btn-primary" style={{ padding: '.45rem 1rem', fontSize: '.88rem' }}
+        <h2 className="section-title">Kelas Saya</h2>
+        <button className={'btn btn-sm ' + (buka ? 'btn-ghost' : 'btn-primary')}
                 onClick={() => setBuka(!buka)}>
-          {buka ? 'Tutup' : (dosen ? '➕ Buat Kelas' : '➕ Gabung Kelas')}
+          <Icon name={buka ? 'silang' : 'tambah'} size={15} />
+          {buka ? 'Tutup' : (dosen ? 'Buat Kelas' : 'Gabung Kelas')}
         </button>
       </div>
       <p className="muted" style={{ fontSize: '.83rem', marginTop: '.3rem' }}>
@@ -106,47 +124,113 @@ export default function KelasSection() {
         </form>
       ))}
 
-      {msg && <p style={{ marginTop: '.8rem', fontSize: '.88rem' }}>{msg}</p>}
+      {msg && (
+        <div className="card" style={{
+          padding: '.7rem .9rem', marginTop: '.8rem', fontSize: '.88rem',
+          borderColor: msg.startsWith('✅')
+            ? 'color-mix(in srgb, var(--success) 45%, var(--border))'
+            : 'color-mix(in srgb, var(--danger) 45%, var(--border))',
+          background: msg.startsWith('✅')
+            ? 'color-mix(in srgb, var(--success) 10%, var(--card))'
+            : 'color-mix(in srgb, var(--danger) 10%, var(--card))',
+        }}>{msg}</div>
+      )}
 
-      {kelas.length === 0 && (
-        <div className="card" style={{ padding: '1.8rem', textAlign: 'center', marginTop: '.8rem' }}>
-          <div style={{ fontSize: '2rem' }}>👋</div>
-          <p className="muted" style={{ margin: 0 }}>
-            {dosen ? 'Belum ada kelas. Klik "Buat Kelas" di atas.'
-                   : 'Belum gabung kelas. Klik "Gabung Kelas" dan masukkan kode dari gurumu.'}
+      {memuat && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                      gap: '.9rem', marginTop: '.8rem' }}>
+          {[1, 2, 3].map((i) => <div key={i} className="skeleton" style={{ height: 150 }} />)}
+        </div>
+      )}
+
+      {!memuat && error && (
+        <div className="card" style={{ padding: '1.4rem', marginTop: '.8rem', textAlign: 'center' }}>
+          <div className="empty-ico" style={{ color: 'var(--danger)' }}><Icon name="info" size={24} /></div>
+          <p style={{ color: 'var(--danger)', margin: '0 0 .8rem' }}>{error}</p>
+          <button className="btn btn-primary btn-sm" onClick={muat}>
+            <Icon name="ulang" size={15} /> Coba lagi
+          </button>
+        </div>
+      )}
+
+      {!memuat && !error && kelas.length === 0 && (
+        <div className="empty" style={{ marginTop: '.8rem' }}>
+          <div className="empty-ico anim-float"><Icon name="kelas" size={26} /></div>
+          <p style={{ margin: '0 0 .2rem', fontWeight: 700 }}>
+            {dosen ? 'Belum ada kelas' : 'Belum gabung kelas'}
+          </p>
+          <p className="muted" style={{ margin: 0, fontSize: '.88rem' }}>
+            {dosen ? 'Klik "Buat Kelas" di atas untuk memulai.'
+                   : 'Klik "Gabung Kelas" dan masukkan kode dari gurumu.'}
           </p>
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+      <div className="stagger" style={{ display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(248px, 1fr))',
                     gap: '.9rem', marginTop: '.8rem' }}>
         {kelas.map((k) => {
           const ini = aktif && aktif.id === k.id
           return (
-            <div key={k.id} className="card" style={{
-              padding: '1.1rem', display: 'flex', flexDirection: 'column', gap: '.45rem',
-              borderColor: ini ? 'var(--primary)' : 'var(--border)',
+            <div key={k.id} className={'card card-hover' + (ini ? ' card-accent' : '')} style={{
+              padding: '1.15rem', display: 'flex', flexDirection: 'column', gap: '.5rem',
+              borderColor: ini
+                ? 'color-mix(in srgb, var(--primary) 55%, var(--border))' : 'var(--border)',
+              background: ini
+                ? 'linear-gradient(150deg, color-mix(in srgb, var(--primary) 8%, var(--card)), var(--card))'
+                : 'var(--card)',
             }}>
-              <div className="flex items-center justify-between">
-                <span style={{ fontWeight: 700 }}>{k.matkul}</span>
-                {ini && <span style={{ fontSize: '.68rem', color: 'var(--primary)', fontWeight: 700 }}>● AKTIF</span>}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
+                  <span style={{
+                    width: 34, height: 34, borderRadius: 11, flexShrink: 0,
+                    display: 'grid', placeItems: 'center', color: '#fff',
+                    background: 'var(--grad-brand)', fontWeight: 800, fontSize: '.95rem',
+                  }}>{(k.matkul || '?')[0].toUpperCase()}</span>
+                  <span style={{ fontWeight: 700, overflow: 'hidden',
+                                 textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k.matkul}</span>
+                </div>
+                {ini && (
+                  <span className="pill pill-accent" style={{ fontSize: '.68rem', padding: '.15rem .5rem',
+                                                              color: 'var(--primary)', fontWeight: 700 }}>
+                    ● AKTIF
+                  </span>
+                )}
               </div>
+
               <div className="muted" style={{ fontSize: '.78rem' }}>
                 {[k.kelas_label, k.prodi, k.kampus].filter(Boolean).join(' · ') || '—'}
               </div>
+
               {dosen ? (
-                <div style={{ fontSize: '.82rem' }}>
-                  Kode: <b style={{ fontFamily: 'Consolas, monospace', color: 'var(--primary)', letterSpacing: 1 }}>{k.kode}</b>
-                  <span className="muted"> · {k.jumlah_anggota} anggota</span>
+                <div className="flex items-center gap-2" style={{ flexWrap: 'wrap' }}>
+                  <span className="pill" style={{ fontSize: '.76rem' }}>
+                    <Icon name="kunci" size={13} />
+                    <b style={{ fontFamily: 'Consolas, monospace', color: 'var(--primary)',
+                                letterSpacing: 1 }}>{k.kode}</b>
+                  </span>
+                  <span className="pill" style={{ fontSize: '.76rem' }}>
+                    <Icon name="mahasiswa" size={13} /> {k.jumlah_anggota}
+                  </span>
                 </div>
               ) : (
-                <div className="muted" style={{ fontSize: '.82rem' }}>👨‍🏫 {k.dosen}</div>
+                <div className="muted flex items-center gap-1" style={{ fontSize: '.8rem' }}>
+                  <Icon name="profil" size={13} /> {k.dosen}
+                </div>
               )}
-              <div className="flex gap-2" style={{ marginTop: 'auto', paddingTop: '.4rem' }}>
-                <button className="btn btn-primary" style={{ flex: 1, padding: '.42rem' }}
-                        onClick={() => masuk(k)}>{ini ? 'Lanjut →' : 'Masuk →'}</button>
-                <button className="btn btn-ghost" style={{ padding: '.42rem .7rem', color: 'var(--danger)', borderColor: 'var(--danger)' }}
-                        onClick={() => keluarHapus(k)}>{dosen ? 'Hapus' : 'Keluar'}</button>
+
+              <div className="flex gap-2" style={{ marginTop: 'auto', paddingTop: '.5rem' }}>
+                <button className="btn btn-primary btn-sm" style={{ flex: 1 }}
+                        onClick={() => masuk(k)}>
+                  {ini ? 'Lanjut' : 'Masuk'} <Icon name="kanan" size={14} />
+                </button>
+                <button className="btn btn-ghost btn-sm"
+                        style={{ color: 'var(--danger)',
+                                 borderColor: 'color-mix(in srgb, var(--danger) 45%, var(--border))' }}
+                        title={dosen ? 'Hapus kelas' : 'Keluar kelas'}
+                        onClick={() => keluarHapus(k)}>
+                  <Icon name={dosen ? 'hapus' : 'keluar'} size={14} />
+                </button>
               </div>
             </div>
           )

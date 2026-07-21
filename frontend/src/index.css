@@ -1,36 +1,84 @@
 @import "tailwindcss";
 
-/* ===== Tema (port dari theme.py PyQuest) ===== */
+/* =====================================================================
+   DESIGN SYSTEM EduQuest
+   Identitas brand (ungu -> cyan) yang sebelumnya hanya ada di Logo &
+   Beranda kini diteruskan ke seluruh aplikasi lewat token di bawah.
+   ===================================================================== */
+
+/* ---------- Tema gelap (bawaan) ---------- */
 :root {
-  --bg: #0F1222;
-  --card: #1A1F36;
+  --bg: #0E1120;
+  --bg-soft: #141833;
+  --card: #191E38;
+  --card-2: #1F2545;
   --border: #2A3153;
+  --border-soft: #232a4a;
   --text: #E8EAF6;
   --subtext: #8B92B3;
+
   --primary: #8B5CF6;
   --primary-hover: #7C3AED;
+  --accent: #26D6EE;          /* cyan brand - pasangan ungu */
+  --accent-hover: #12BCD4;
+
   --success: #22C55E;
   --danger: #EF4444;
   --gold: #FBBF24;
   --info: #38BDF8;
   --code-bg: #0D1117;
   --code-fg: #7EE787;
+
+  /* Gradien brand */
+  --grad-brand: linear-gradient(120deg, #8B5CF6, #7C6BFF 45%, #26D6EE);
+  --grad-brand-soft: linear-gradient(120deg,
+      color-mix(in srgb, #8B5CF6 18%, transparent),
+      color-mix(in srgb, #26D6EE 10%, transparent));
+  --grad-gold: linear-gradient(120deg, #FBBF24, #F59E0B);
+  --grad-success: linear-gradient(120deg, #22C55E, #10B981);
+  --grad-danger: linear-gradient(120deg, #EF4444, #F97316);
+
+  /* Sudut & bayangan */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 26px;
+  --sh-sm: 0 1px 2px rgba(0,0,0,.28);
+  --sh-md: 0 6px 18px -6px rgba(0,0,0,.45);
+  --sh-lg: 0 18px 40px -12px rgba(0,0,0,.55);
+  --sh-glow: 0 8px 26px -8px color-mix(in srgb, var(--primary) 55%, transparent);
 }
+
+/* ---------- Tema terang ---------- */
 :root[data-theme="light"] {
-  --bg: #EEF0FA;
+  --bg: #F4F6FC;
+  --bg-soft: #EAEEF9;
   --card: #FFFFFF;
-  --border: #E5E7EB;
-  --text: #1E1B2E;
+  --card-2: #F7F9FE;
+  --border: #E2E6F0;
+  --border-soft: #EDF0F7;
+  --text: #171532;
   --subtext: #6B7280;
+
   --primary: #7C3AED;
   --primary-hover: #6D28D9;
+  --accent: #0EA5C6;
+  --accent-hover: #0891B2;
+
   --success: #16A34A;
   --danger: #DC2626;
   --gold: #D97706;
   --info: #0284C7;
+
+  --grad-brand: linear-gradient(120deg, #7C3AED, #6D5BFF 45%, #0EA5C6);
+  --sh-sm: 0 1px 2px rgba(23,21,50,.06);
+  --sh-md: 0 6px 18px -8px rgba(23,21,50,.18);
+  --sh-lg: 0 18px 40px -14px rgba(23,21,50,.22);
+  --sh-glow: 0 8px 26px -10px color-mix(in srgb, var(--primary) 45%, transparent);
 }
 
 * { box-sizing: border-box; }
+html, body { overflow-x: hidden; }
 body {
   margin: 0;
   background: var(--bg);
@@ -38,11 +86,10 @@ body {
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   transition: background .2s, color .2s;
 }
-
-/* Latar utama dipasang di div wrapper (.app-shell), bukan body/#root — agar
-   warna tema tetap tampil di lingkungan yang memaksa body transparan
-   (mis. preview pane / sandbox). Div biasa selalu bisa diberi warna. */
 #root { min-height: 100vh; }
+
+/* Latar utama di wrapper (bukan body) agar tetap tampil di lingkungan
+   yang memaksa body transparan (preview pane / sandbox). */
 .app-shell {
   min-height: 100vh;
   background: var(--bg);
@@ -50,45 +97,214 @@ body {
   transition: background .2s, color .2s;
 }
 
-/* ===== Komponen dasar dipakai berulang ===== */
+/* =====================================================================
+   KARTU
+   ===================================================================== */
 .card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-sm);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+/* Kartu yang bisa diklik / interaktif */
+.card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--sh-md);
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+}
+/* Kartu dengan garis aksen gradien di sisi atas */
+.card-accent { position: relative; overflow: hidden; }
+.card-accent::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 3px;
+  background: var(--grad-brand);
 }
 
+/* =====================================================================
+   TOMBOL
+   ===================================================================== */
 .btn {
-  border: none; border-radius: 10px; cursor: pointer;
+  border: none; border-radius: var(--r-sm); cursor: pointer;
   font-weight: 600; padding: .6rem 1.1rem; font-size: .95rem;
-  transition: filter .15s, transform .05s, background .15s;
+  display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
+  transition: filter .15s, transform .08s, background .15s, box-shadow .18s, border-color .15s;
 }
-.btn:active { transform: translateY(1px); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
-.btn-primary { background: var(--primary); color: #fff; }
-.btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
-.btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
-.btn-ghost:hover:not(:disabled) { border-color: var(--primary); }
 
-.input {
-  width: 100%; background: var(--bg); color: var(--text);
-  border: 1px solid var(--border); border-radius: 10px;
-  padding: .6rem .8rem; font-size: .95rem; outline: none;
-  transition: border-color .15s;
+.btn-primary { background: var(--grad-brand); color: #fff; box-shadow: var(--sh-glow); }
+.btn-primary:hover:not(:disabled) { filter: brightness(1.08); box-shadow: var(--sh-md); }
+
+.btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--primary) 60%, var(--border));
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
-.input:focus { border-color: var(--primary); }
+
+.btn-subtle { background: var(--bg-soft); color: var(--text); border: 1px solid var(--border-soft); }
+.btn-subtle:hover:not(:disabled) { background: var(--card-2); }
+
+.btn-danger { background: var(--grad-danger); color: #fff; }
+.btn-danger:hover:not(:disabled) { filter: brightness(1.07); }
+
+.btn-sm { padding: .35rem .7rem; font-size: .82rem; border-radius: 8px; }
+
+/* =====================================================================
+   INPUT
+   ===================================================================== */
+.input {
+  width: 100%; background: var(--bg-soft); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: .62rem .85rem; font-size: .95rem; outline: none;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.input:focus {
+  border-color: var(--primary);
+  background: var(--card);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.input::placeholder { color: color-mix(in srgb, var(--subtext) 80%, transparent); }
 
 .code {
   background: var(--code-bg); color: var(--code-fg);
   font-family: Consolas, "Courier New", monospace;
-  border-radius: 10px; padding: .8rem 1rem; white-space: pre-wrap;
+  border-radius: var(--r-md); padding: .85rem 1rem; white-space: pre-wrap;
   font-size: .9rem; line-height: 1.55; overflow-x: auto;
+  border: 1px solid rgba(255,255,255,.06);
 }
 
 .muted { color: var(--subtext); }
 a { color: var(--primary); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-/* ===== Animasi ===== */
+/* =====================================================================
+   ELEMEN BARU
+   ===================================================================== */
+
+/* Teks bergradasi brand */
+.grad-text {
+  background: var(--grad-brand);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+}
+
+/* Judul bagian dengan garis aksen */
+.section-title {
+  display: flex; align-items: center; gap: .6rem;
+  font-size: 1.12rem; font-weight: 700; margin: 0 0 .2rem;
+}
+.section-title::before {
+  content: ""; width: 4px; height: 18px; border-radius: 4px;
+  background: var(--grad-brand);
+}
+
+/* Pil / chip kecil */
+.pill {
+  display: inline-flex; align-items: center; gap: .35rem;
+  background: var(--bg-soft); border: 1px solid var(--border-soft);
+  border-radius: 999px; padding: .28rem .7rem; font-size: .82rem;
+  transition: border-color .15s, background .15s;
+}
+.pill-accent {
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+  color: var(--text);
+}
+
+/* Kartu statistik */
+.stat {
+  position: relative; overflow: hidden;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 1.1rem 1.2rem;
+  box-shadow: var(--sh-sm);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.stat:hover { transform: translateY(-3px); box-shadow: var(--sh-md); }
+.stat::after {         /* cahaya lembut di pojok */
+  content: ""; position: absolute; right: -28px; top: -28px;
+  width: 96px; height: 96px; border-radius: 50%;
+  background: var(--grad-brand); opacity: .13; filter: blur(6px);
+  pointer-events: none;
+}
+.stat-ico {
+  width: 40px; height: 40px; border-radius: 12px;
+  display: grid; place-items: center; font-size: 1.25rem;
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.stat-num { font-size: 1.85rem; font-weight: 800; line-height: 1.1; }
+.stat-lbl { font-size: .8rem; color: var(--subtext); }
+
+/* Bar kemajuan */
+.bar {
+  height: 10px; border-radius: 999px; overflow: hidden;
+  background: var(--bg-soft); border: 1px solid var(--border-soft);
+}
+.bar > i {
+  display: block; height: 100%; border-radius: 999px;
+  background: var(--grad-brand); transition: width .5s cubic-bezier(.4,0,.2,1);
+}
+.bar-gold > i { background: var(--grad-gold); }
+.bar-success > i { background: var(--grad-success); }
+.bar-sm { height: 6px; }
+
+/* Keadaan kosong */
+.empty {
+  text-align: center; padding: 2.4rem 1.2rem;
+  border: 1px dashed var(--border); border-radius: var(--r-lg);
+  background: var(--grad-brand-soft);
+}
+.empty-ico {
+  width: 62px; height: 62px; margin: 0 auto .7rem; border-radius: 20px;
+  display: grid; place-items: center; font-size: 1.9rem;
+  background: var(--card); border: 1px solid var(--border);
+  box-shadow: var(--sh-sm);
+}
+
+/* Navigasi */
+.nav-link {
+  position: relative; display: inline-flex; align-items: center; gap: .4rem;
+  padding: .42rem .7rem; border-radius: 10px; font-size: .9rem;
+  color: var(--subtext); text-decoration: none;
+  transition: color .15s, background .15s;
+}
+.nav-link:hover { color: var(--text); background: var(--bg-soft); text-decoration: none; }
+.nav-link.active { color: var(--text); background: color-mix(in srgb, var(--primary) 14%, transparent); }
+.nav-link.active::after {
+  content: ""; position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: -7px; width: 60%; height: 3px; border-radius: 3px;
+  background: var(--grad-brand);
+}
+
+/* Kerangka memuat (skeleton) */
+@keyframes shimmer { 0% { background-position: -320px 0 } 100% { background-position: 320px 0 } }
+.skeleton {
+  border-radius: var(--r-sm);
+  background: linear-gradient(90deg, var(--bg-soft) 25%, var(--card-2) 50%, var(--bg-soft) 75%);
+  background-size: 640px 100%;
+  animation: shimmer 1.3s linear infinite;
+}
+
+/* Pembungkus tabel agar bisa digeser di layar sempit */
+.table-wrap { overflow-x: auto; border-radius: var(--r-md); }
+.table-wrap table { width: 100%; border-collapse: collapse; }
+.table-wrap th {
+  text-align: left; font-size: .78rem; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--subtext); font-weight: 700;
+  padding: .6rem .7rem; border-bottom: 1px solid var(--border);
+}
+.table-wrap td { padding: .65rem .7rem; border-bottom: 1px solid var(--border-soft); }
+.table-wrap tr:last-child td { border-bottom: none; }
+.table-wrap tbody tr { transition: background .15s; }
+.table-wrap tbody tr:hover { background: var(--bg-soft); }
+
+/* Baris daftar yang bisa diklik */
+.row-hover { transition: background .15s; }
+.row-hover:hover { background: var(--bg-soft); }
+
+/* =====================================================================
+   ANIMASI
+   ===================================================================== */
 @keyframes pop { 0% { transform: scale(1) } 40% { transform: scale(1.28) } 100% { transform: scale(1) } }
 @keyframes shake { 0%,100% { transform: translateX(0) } 20% { transform: translateX(-8px) } 40% { transform: translateX(8px) } 60% { transform: translateX(-6px) } 80% { transform: translateX(6px) } }
 @keyframes floatUp { 0% { opacity: 0; transform: translate(-50%, 0) } 25% { opacity: 1 } 100% { opacity: 0; transform: translate(-50%, -46px) } }
@@ -98,6 +314,8 @@ a:hover { text-decoration: underline; }
 @keyframes bossHit { 0%,100% { transform: translateX(0) } 25% { transform: translateX(-7px) scale(1.12) } 75% { transform: translateX(7px) } }
 @keyframes fadeInUp { 0% { opacity: 0; transform: translateY(12px) } 100% { opacity: 1; transform: translateY(0) } }
 @keyframes nodePulse { 0%,100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 30%, transparent) } 50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--primary) 5%, transparent) } }
+@keyframes floatSoft { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-5px) } }
+@keyframes ringGrow { 0% { stroke-dashoffset: var(--dash-from, 999) } 100% { stroke-dashoffset: var(--dash-to, 0) } }
 
 .anim-pop { animation: pop .4s ease }
 .anim-shake { animation: shake .4s ease }
@@ -105,5 +323,34 @@ a:hover { text-decoration: underline; }
 .anim-star { display: inline-block; animation: starPop .45s ease both }
 .anim-combo { display: inline-block; animation: comboPop .32s ease }
 .anim-boss { display: inline-block; animation: bossHit .4s ease }
+.anim-float { animation: floatSoft 3.4s ease-in-out infinite }
 .fade-in { animation: fadeInUp .35s ease both }
 .float-plus { position: absolute; left: 50%; font-weight: 800; pointer-events: none; animation: floatUp .8s ease forwards }
+
+/* Tampil bertahap untuk daftar kartu */
+.stagger > * { animation: fadeInUp .38s ease both; }
+.stagger > *:nth-child(1) { animation-delay: .02s }
+.stagger > *:nth-child(2) { animation-delay: .06s }
+.stagger > *:nth-child(3) { animation-delay: .10s }
+.stagger > *:nth-child(4) { animation-delay: .14s }
+.stagger > *:nth-child(5) { animation-delay: .18s }
+.stagger > *:nth-child(6) { animation-delay: .22s }
+.stagger > *:nth-child(n+7) { animation-delay: .26s }
+
+/* =====================================================================
+   RESPONSIF
+   ===================================================================== */
+@media (max-width: 640px) {
+  main { padding-left: .75rem !important; padding-right: .75rem !important; }
+  .card { padding: 1rem !important; }
+  .stat { padding: .9rem 1rem; }
+  .stat-num { font-size: 1.5rem; }
+  table { font-size: .85rem; }
+  .nav-link { padding: .35rem .55rem; font-size: .85rem; }
+  .nav-link.active::after { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-float, .skeleton, .stagger > * { animation: none !important; }
+  .card, .stat, .btn { transition: none !important; }
+}
