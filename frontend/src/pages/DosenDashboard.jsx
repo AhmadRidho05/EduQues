@@ -4,6 +4,43 @@ import client from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import Icon from '../components/Icon'
 
+function Stat({ ikon, angka, label, warna }) {
+  return (
+    <div className="stat" style={{ flex: '1 1 170px' }}>
+      <div className="flex items-center justify-between" style={{ marginBottom: '.6rem' }}>
+        <span className="stat-ico" style={warna ? {
+          background: `color-mix(in srgb, ${warna} 16%, transparent)`,
+          borderColor: `color-mix(in srgb, ${warna} 32%, transparent)`,
+          color: warna,
+        } : undefined}>
+          <Icon name={ikon} size={19} />
+        </span>
+      </div>
+      <div className="stat-num">{angka ?? '–'}</div>
+      <div className="stat-lbl">{label}</div>
+    </div>
+  )
+}
+
+function Pintasan({ to, ikon, judul, desc }) {
+  return (
+    <Link to={to} className="card card-hover" style={{
+      padding: '1.2rem', flex: '1 1 210px', display: 'block',
+      color: 'var(--text)', textDecoration: 'none',
+    }}>
+      <span className="stat-ico" style={{ marginBottom: '.7rem' }}>
+        <Icon name={ikon} size={19} />
+      </span>
+      <div style={{ fontWeight: 700, marginTop: '.2rem' }}>{judul}</div>
+      <div className="muted" style={{ fontSize: '.84rem', marginTop: '.15rem' }}>{desc}</div>
+      <div style={{ marginTop: '.7rem', color: 'var(--primary)', fontSize: '.85rem',
+                    fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+        Buka <Icon name="kanan" size={14} />
+      </div>
+    </Link>
+  )
+}
+
 export default function DosenDashboard() {
   const { user } = useAuth()
   const [ov, setOv] = useState(null)
@@ -39,39 +76,6 @@ export default function DosenDashboard() {
   const babTerisi = babBiasa.filter((l) => l.jumlah_soal > 0).length
   const persenSiap = babBiasa.length ? Math.round((babTerisi / babBiasa.length) * 100) : 0
   const maxSoal = Math.max(1, ...levels.map((l) => l.jumlah_soal || 0))
-
-  const Stat = ({ ikon, angka, label, warna }) => (
-    <div className="stat" style={{ flex: '1 1 170px' }}>
-      <div className="flex items-center justify-between" style={{ marginBottom: '.6rem' }}>
-        <span className="stat-ico" style={warna ? {
-          background: `color-mix(in srgb, ${warna} 16%, transparent)`,
-          borderColor: `color-mix(in srgb, ${warna} 32%, transparent)`,
-          color: warna,
-        } : undefined}>
-          <Icon name={ikon} size={19} />
-        </span>
-      </div>
-      <div className="stat-num">{angka ?? '–'}</div>
-      <div className="stat-lbl">{label}</div>
-    </div>
-  )
-
-  const Pintasan = ({ to, ikon, judul, desc }) => (
-    <Link to={to} className="card card-hover" style={{
-      padding: '1.2rem', flex: '1 1 210px', display: 'block',
-      color: 'var(--text)', textDecoration: 'none',
-    }}>
-      <span className="stat-ico" style={{ marginBottom: '.7rem' }}>
-        <Icon name={ikon} size={19} />
-      </span>
-      <div style={{ fontWeight: 700, marginTop: '.2rem' }}>{judul}</div>
-      <div className="muted" style={{ fontSize: '.84rem', marginTop: '.15rem' }}>{desc}</div>
-      <div style={{ marginTop: '.7rem', color: 'var(--primary)', fontSize: '.85rem',
-                    fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-        Buka <Icon name="kanan" size={14} />
-      </div>
-    </Link>
-  )
 
   if (memuat) return (
     <div>

@@ -115,6 +115,12 @@ def delete_material(mid: int, db: Session = Depends(get_db),
     m = db.get(models.Material, mid)
     if not m:
         raise HTTPException(404, "Materi tidak ditemukan.")
+    if m.kelas_id:
+        k = db.get(models.Kelas, m.kelas_id)
+        if k and k.dosen_id != dosen.id:
+            raise HTTPException(403, "Akses ditolak: Materi ini bukan milik kelas Anda.")
+    elif m.created_by and m.created_by != dosen.id:
+        raise HTTPException(403, "Akses ditolak: Materi ini bukan milik Anda.")
     hapus_file_materi(m)
     db.delete(m)
     db.commit()

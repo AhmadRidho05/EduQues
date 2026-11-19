@@ -34,6 +34,22 @@ function Ring({ persen, ukuran = 108, tebal = 9, isi }) {
   )
 }
 
+function Stat({ ikon, angka, label, warna }) {
+  return (
+    <div className="stat" style={{ flex: '1 1 130px', padding: '.95rem 1rem' }}>
+      <span className="stat-ico" style={{
+        width: 34, height: 34, borderRadius: 10, marginBottom: '.5rem',
+        background: `color-mix(in srgb, ${warna} 16%, transparent)`,
+        borderColor: `color-mix(in srgb, ${warna} 32%, transparent)`, color: warna,
+      }}>
+        <Icon name={ikon} size={17} />
+      </span>
+      <div className="stat-num" style={{ fontSize: '1.45rem' }}>{angka}</div>
+      <div className="stat-lbl">{label}</div>
+    </div>
+  )
+}
+
 export default function Profil() {
   const { user } = useAuth()
   const mahasiswa = user?.role === 'mahasiswa'
@@ -58,20 +74,6 @@ export default function Profil() {
   const dapat = badges.filter((b) => b.earned).length
   const pctLencana = badges.length ? Math.round((dapat / badges.length) * 100) : 0
   const inisial = (user?.nama || 'P')[0].toUpperCase()
-
-  const Stat = ({ ikon, angka, label, warna }) => (
-    <div className="stat" style={{ flex: '1 1 130px', padding: '.95rem 1rem' }}>
-      <span className="stat-ico" style={{
-        width: 34, height: 34, borderRadius: 10, marginBottom: '.5rem',
-        background: `color-mix(in srgb, ${warna} 16%, transparent)`,
-        borderColor: `color-mix(in srgb, ${warna} 32%, transparent)`, color: warna,
-      }}>
-        <Icon name={ikon} size={17} />
-      </span>
-      <div className="stat-num" style={{ fontSize: '1.45rem' }}>{angka}</div>
-      <div className="stat-lbl">{label}</div>
-    </div>
-  )
 
   return (
     <div className="fade-in">

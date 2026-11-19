@@ -80,6 +80,7 @@ class Level(Base):
 class Question(Base):
     """Bank soal. Kolom yang dipakai berbeda tergantung `tipe`:
       mc    -> q, opts, ans
+      essay -> q, ans
       out   -> q, code, ans
       blank -> q, code, ans
       code  -> q, starter, expected
@@ -87,9 +88,10 @@ class Question(Base):
     __tablename__ = "questions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    level_id: Mapped[int] = mapped_column(ForeignKey("levels.id"))
+    level_id: Mapped[int | None] = mapped_column(ForeignKey("levels.id"), nullable=True)
+    tes_id: Mapped[int | None] = mapped_column(ForeignKey("tes.id"), nullable=True)
     urutan: Mapped[int] = mapped_column(Integer, default=0)
-    tipe: Mapped[str] = mapped_column(String(10))  # 'mc' | 'out' | 'blank' | 'code'
+    tipe: Mapped[str] = mapped_column(String(10))  # 'mc' | 'essay' | 'out' | 'blank' | 'code'
 
     q: Mapped[str] = mapped_column(Text)            # pertanyaan
     hint: Mapped[str] = mapped_column(Text, default="")
@@ -99,7 +101,8 @@ class Question(Base):
     starter: Mapped[str | None] = mapped_column(Text, nullable=True)    # code: kode awal
     expected: Mapped[str | None] = mapped_column(Text, nullable=True)   # code: output target
 
-    level: Mapped["Level"] = relationship(back_populates="questions")
+    level: Mapped["Level | None"] = relationship(back_populates="questions")
+    tes: Mapped["Tes | None"] = relationship(back_populates="questions")
 
 
 class Progress(Base):
@@ -241,6 +244,10 @@ class Tes(Base):
     waktu_selesai: Mapped[datetime] = mapped_column(DateTime)
     dibuat_oleh: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    questions: Mapped[list["Question"]] = relationship(
+        back_populates="tes", cascade="all, delete-orphan",
+        order_by="Question.urutan")
 
 
 class TesAttempt(Base):

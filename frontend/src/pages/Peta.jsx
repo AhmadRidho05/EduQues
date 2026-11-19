@@ -16,6 +16,16 @@ function nodeColor(lv) {
   return 'var(--primary)'
 }
 
+function Legenda({ warna, teks }) {
+  return (
+    <span className="pill" style={{ fontSize: '.76rem' }}>
+      <i style={{ width: 9, height: 9, borderRadius: '50%', background: warna,
+                  display: 'inline-block' }} />
+      {teks}
+    </span>
+  )
+}
+
 export default function Peta() {
   const [levels, setLevels] = useState([])
   const [memuat, setMemuat] = useState(true)
@@ -35,14 +45,6 @@ export default function Peta() {
   const totalBintang = levels.reduce((a, l) => a + (l.stars || 0), 0)
   const maxBintang = levels.length * 3
   const persen = levels.length ? Math.round((selesai / levels.length) * 100) : 0
-
-  const Legenda = ({ warna, teks }) => (
-    <span className="pill" style={{ fontSize: '.76rem' }}>
-      <i style={{ width: 9, height: 9, borderRadius: '50%', background: warna,
-                  display: 'inline-block' }} />
-      {teks}
-    </span>
-  )
 
   return (
     <div className="fade-in">

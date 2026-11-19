@@ -10,6 +10,9 @@ const STATUS = {
 }
 const statusInfo = (s) => STATUS[s] || { label: s || 'Tidak diketahui', ikon: 'info', warna: 'var(--subtext)' }
 
+const splitLines = (t) => t.split('\n').map((s) => s.trim()).filter(Boolean)
+const kosongSoal = { tipe: 'mc', q: '', optsText: '', ansText: '', hint: '' }
+
 export default function KelolaTes() {
   const { user } = useAuth()
   const [tes, setTes] = useState([])
@@ -18,6 +21,20 @@ export default function KelolaTes() {
   const [hasil, setHasil] = useState(null)  // {tid, judul, rows}
   const [memuat, setMemuat] = useState(true)
   const [error, setError] = useState('')
+
+  // State untuk kelola soal khusus tes
+  const [tesAktif, setTesAktif] = useState(null) // objek tes yang sedang dikelola soalnya
+  const [soalTes, setSoalTes] = useState([])
+  const [memuatSoalTes, setMemuatSoalTes] = useState(false)
+  const [formSoal, setFormSoal] = useState(kosongSoal)
+  const [msgSoal, setMsgSoal] = useState('')
+
+  // State untuk tarik soal dari peta
+  const [bukaTarik, setBukaTarik] = useState(false)
+  const [levelsPeta, setLevelsPeta] = useState([])
+  const [selectedLevels, setSelectedLevels] = useState([])
+  const [memuatTarik, setMemuatTarik] = useState(false)
+  const [msgTarik, setMsgTarik] = useState('')
 
   useEffect(() => { muat() }, [])
   function muat() {
@@ -47,6 +64,7 @@ export default function KelolaTes() {
     try {
       await client.delete(`/tes/${t.id}`)
       if (hasil?.tid === t.id) setHasil(null)
+      if (tesAktif?.id === t.id) setTesAktif(null)
       muat()
     } catch (err) {
       alert(err?.response?.data?.detail || 'Gagal menghapus tes.')
@@ -59,6 +77,96 @@ export default function KelolaTes() {
       setHasil({ tid: t.id, judul: data.judul, rows: data.hasil })
     } catch (err) {
       alert(err?.response?.data?.detail || 'Gagal memuat hasil tes.')
+    }
+  }
+
+  // Buka panel kelola soal tes
+  async function bukaKelolaSoal(t) {
+    setTesAktif(t)
+    setMsgSoal('')
+    setMemuatSoalTes(true)
+    try {
+      const { data } = await client.get(`/tes/${t.id}/questions`)
+      setSoalTes(data)
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Gagal memuat soal tes.')
+    } finally {
+      setMemuatSoalTes(false)
+    }
+  }
+
+  async function tambahSoalKhusus(e) {
+    e.preventDefault()
+    if (!tesAktif) return
+    setMsgSoal('')
+    const t = formSoal.tipe
+    const payload = {
+      tipe: t,
+      q: formSoal.q,
+      hint: formSoal.hint || '',
+      opts: t === 'mc' ? splitLines(formSoal.optsText) : null,
+      ans: splitLines(formSoal.ansText),
+    }
+    try {
+      await client.post(`/tes/${tesAktif.id}/questions`, payload)
+      setFormSoal(kosongSoal)
+      setMsgSoal('✅ Soal berhasil ditambahkan ke tes.')
+      // Refresh list soal tes & list tes
+      bukaKelolaSoal(tesAktif)
+      muat()
+    } catch (err) {
+      setMsgSoal('❌ ' + (err?.response?.data?.detail || 'Gagal menambahkan soal.'))
+    }
+  }
+
+  async function hapusSoalTes(qid) {
+    if (!window.confirm('Hapus soal ini dari tes?')) return
+    try {
+      await client.delete(`/tes/questions/${qid}`)
+      bukaKelolaSoal(tesAktif)
+      muat()
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Gagal menghapus soal.')
+    }
+  }
+
+  // Buka dialog tarik soal dari peta
+  async function bukaDialogTarik() {
+    setBukaTarik(true)
+    setMsgTarik('')
+    setSelectedLevels([])
+    try {
+      const { data } = await client.get('/levels')
+      setLevelsPeta(data.filter((l) => !l.is_boss))
+    } catch {
+      alert('Gagal memuat bab peta.')
+    }
+  }
+
+  function toggleLevel(id) {
+    setSelectedLevels((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+  }
+
+  async function eksekusiTarikSoal() {
+    if (!tesAktif || selectedLevels.length === 0) return
+    setMemuatTarik(true)
+    setMsgTarik('')
+    try {
+      const { data } = await client.post(`/tes/${tesAktif.id}/tarik-peta`, {
+        level_ids: selectedLevels,
+      })
+      setMsgTarik(`✅ Berhasil menarik ${data.jumlah_ditarik} soal dari bab terpilih!`)
+      setTimeout(() => {
+        setBukaTarik(false)
+        bukaKelolaSoal(tesAktif)
+        muat()
+      }, 1200)
+    } catch (err) {
+      setMsgTarik('❌ ' + (err?.response?.data?.detail || 'Gagal menarik soal.'))
+    } finally {
+      setMemuatTarik(false)
     }
   }
 
@@ -191,10 +299,23 @@ export default function KelolaTes() {
                       <span className="flex items-center gap-1">
                         <Icon name="mahasiswa" size={14} /> {t.peserta_selesai} peserta selesai
                       </span>
+                      {t.jumlah_soal_khusus > 0 ? (
+                        <span className="pill pill-accent" style={{ fontSize: '.72rem', padding: '2px 7px' }}>
+                          ✨ {t.jumlah_soal_khusus} soal khusus tes
+                        </span>
+                      ) : (
+                        <span className="pill" style={{ fontSize: '.72rem', padding: '2px 7px' }}>
+                          🌐 Acak dari bank kelas
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   <div className="flex gap-2" style={{ flexShrink: 0 }}>
+                    <button className="btn btn-primary btn-sm flex items-center gap-2"
+                            onClick={() => bukaKelolaSoal(t)}>
+                      <Icon name="soal" size={14} /> Soal ({t.jumlah_soal_khusus || 0})
+                    </button>
                     <button className="btn btn-subtle btn-sm flex items-center gap-2" onClick={() => lihatHasil(t)}>
                       <Icon name="skor" size={14} /> Hasil
                     </button>
@@ -260,6 +381,139 @@ export default function KelolaTes() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── PANEL KELOLA SOAL KHUSUS TES ── */}
+      {tesAktif && (
+        <div className="card card-accent fade-in" style={{ padding: '1.4rem', marginTop: '1.4rem' }}>
+          <div className="flex items-center justify-between gap-3" style={{ flexWrap: 'wrap', marginBottom: '1rem' }}>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="pill pill-accent" style={{ fontSize: '.75rem' }}>Eksklusif Tes</span>
+                <h2 className="section-title" style={{ margin: 0 }}>Kelola Soal: {tesAktif.judul}</h2>
+              </div>
+              <p className="muted" style={{ margin: '.3rem 0 0', fontSize: '.84rem' }}>
+                {soalTes.length > 0
+                  ? `Tes ini menggunakan ${soalTes.length} soal khusus. Mahasiswa akan diuji dengan soal-soal ini.`
+                  : 'Belum ada soal khusus. Jika dibiarkan kosong, tes otomatis mengambil acak dari bank materi kelas.'}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button className="btn btn-subtle btn-sm flex items-center gap-2" onClick={bukaDialogTarik}>
+                <Icon name="tambah" size={14} /> Tarik Soal dari Peta
+              </button>
+              <button className="btn btn-ghost btn-sm flex items-center gap-2" onClick={() => setTesAktif(null)}>
+                <Icon name="silang" size={14} /> Tutup
+              </button>
+            </div>
+          </div>
+
+          {/* Form Buat Soal Khusus Baru */}
+          <form onSubmit={tambahSoalKhusus} className="card" style={{ padding: '1.1rem 1.2rem', background: 'var(--bg-soft)', marginBottom: '1.2rem' }}>
+            <b style={{ fontSize: '.92rem' }}>Tambah Soal Baru Khusus Tes Ini</b>
+            <div className="flex gap-2" style={{ margin: '.5rem 0 .7rem' }}>
+              <button type="button" className={`btn btn-sm ${formSoal.tipe === 'mc' ? 'btn-primary' : 'btn-subtle'}`}
+                      onClick={() => setFormSoal({ ...formSoal, tipe: 'mc' })}>Pilihan ganda</button>
+              <button type="button" className={`btn btn-sm ${formSoal.tipe === 'essay' ? 'btn-primary' : 'btn-subtle'}`}
+                      onClick={() => setFormSoal({ ...formSoal, tipe: 'essay' })}>Isian singkat / Esai</button>
+            </div>
+
+            <textarea className="input" placeholder="Tulis pertanyaan soal di sini..."
+                      value={formSoal.q} onChange={(e) => setFormSoal({ ...formSoal, q: e.target.value })}
+                      required style={{ minHeight: 60 }} />
+
+            {formSoal.tipe === 'mc' && (
+              <textarea className="input" placeholder={'Ketik opsi A di baris ini, lalu Enter\nKetik opsi B di baris ini, lalu Enter\nKetik opsi C di baris ini, lalu Enter\nKetik opsi D di baris ini'}
+                        value={formSoal.optsText} onChange={(e) => setFormSoal({ ...formSoal, optsText: e.target.value })}
+                        required style={{ marginTop: '.6rem', minHeight: 80 }} />
+            )}
+
+            <textarea className="input" placeholder={formSoal.tipe === 'mc' ? 'Salin/tuliskan teks opsi yang benar persis seperti di atas...' : 'Contoh variasi jawaban yang diterima (satu per baris):'}
+                      value={formSoal.ansText} onChange={(e) => setFormSoal({ ...formSoal, ansText: e.target.value })}
+                      required style={{ marginTop: '.6rem', minHeight: 50 }} />
+
+            <div className="flex items-center gap-3" style={{ marginTop: '.8rem' }}>
+              <button className="btn btn-primary btn-sm flex items-center gap-2">
+                <Icon name="cek" size={14} /> Simpan ke Tes
+              </button>
+              {msgSoal && <span className="muted" style={{ fontSize: '.84rem' }}>{msgSoal}</span>}
+            </div>
+          </form>
+
+          {/* Daftar Soal Tes */}
+          <div className="flex items-center justify-between" style={{ marginBottom: '.6rem' }}>
+            <b style={{ fontSize: '.92rem' }}>Daftar Soal di Tes Ini ({soalTes.length})</b>
+          </div>
+
+          {memuatSoalTes ? (
+            <p className="muted" style={{ fontSize: '.85rem' }}>Memuat soal...</p>
+          ) : soalTes.length === 0 ? (
+            <div className="empty" style={{ padding: '1.2rem' }}>
+              <p className="muted" style={{ margin: 0, fontSize: '.86rem' }}>
+                Belum ada soal khusus. Kamu bisa buat soal baru di formulir atas atau klik <b>"Tarik Soal dari Peta"</b>.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: '.5rem' }}>
+              {soalTes.map((q, idx) => (
+                <div key={q.id} className="card flex items-center justify-between"
+                     style={{ padding: '.6rem .9rem', gap: '.8rem' }}>
+                  <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
+                    <span className="muted" style={{ fontSize: '.8rem', fontWeight: 700, width: 24 }}>#{idx + 1}</span>
+                    <span className="pill" style={{ fontSize: '.72rem' }}>{q.tipe === 'mc' ? 'Pilihan ganda' : 'Esai'}</span>
+                    <span style={{ fontSize: '.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {q.q}
+                    </span>
+                  </div>
+                  <button className="btn btn-danger btn-sm" title="Hapus soal" onClick={() => hapusSoalTes(q.id)}>
+                    <Icon name="hapus" size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── MODAL DIALOG TARIK SOAL DARI PETA ── */}
+      {bukaTarik && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999, padding: '1rem'
+        }}>
+          <div className="card fade-in" style={{ maxWidth: 480, width: '100%', padding: '1.4rem' }}>
+            <div className="flex items-center justify-between" style={{ marginBottom: '.8rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Tarik Soal dari Peta Latihan</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setBukaTarik(false)}>
+                <Icon name="silang" size={14} />
+              </button>
+            </div>
+            <p className="muted" style={{ fontSize: '.84rem', margin: '0 0 1rem' }}>
+              Pilih bab mana saja yang ingin disalin soal-soalnya ke dalam tes ini:
+            </p>
+
+            <div style={{ maxHeight: 220, overflowY: 'auto', display: 'grid', gap: '.4rem', marginBottom: '1rem' }}>
+              {levelsPeta.map((lv) => (
+                <label key={lv.id} className="card card-hover flex items-center gap-3"
+                       style={{ padding: '.6rem .8rem', cursor: 'pointer', fontSize: '.88rem' }}>
+                  <input type="checkbox" checked={selectedLevels.includes(lv.id)}
+                         onChange={() => toggleLevel(lv.id)} />
+                  <span>{lv.emoji} <b>Bab {lv.urutan}:</b> {lv.nama} ({lv.jumlah_soal || 0} soal)</span>
+                </label>
+              ))}
+            </div>
+
+            {msgTarik && <p style={{ fontSize: '.85rem', margin: '0 0 .8rem' }}>{msgTarik}</p>}
+
+            <div className="flex justify-end gap-2">
+              <button className="btn btn-ghost btn-sm" onClick={() => setBukaTarik(false)}>Batal</button>
+              <button className="btn btn-primary btn-sm" disabled={selectedLevels.length === 0 || memuatTarik}
+                      onClick={eksekusiTarikSoal}>
+                {memuatTarik ? 'Menarik soal...' : `Salin Soal dari ${selectedLevels.length} Bab`}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

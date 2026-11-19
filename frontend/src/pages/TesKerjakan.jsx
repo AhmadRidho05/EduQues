@@ -11,7 +11,6 @@ export default function TesKerjakan() {
   const [data, setData] = useState(null)      // {judul, idx, total, questions}
   const [idx, setIdx] = useState(0)
   const [answer, setAnswer] = useState('')
-  const [feedback, setFeedback] = useState(null)  // respons /jawab
   const [hasil, setHasil] = useState(null)    // hasil akhir
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -28,21 +27,22 @@ export default function TesKerjakan() {
   const soal = data?.questions?.[idx]
 
   async function jawab(val) {
-    if (feedback || busy) return
+    if (busy) return
     setBusy(true)
     try {
       const { data: res } = await client.post(`/tes/${id}/jawab`, { jawaban: String(val) })
-      setFeedback(res)
-      if (res.status === 'selesai') { setHasil(res); burstConfetti() }
+      setAnswer('')
+      if (res.status === 'selesai') {
+        setHasil(res)
+        burstConfetti()
+      } else {
+        setIdx(res.idx)
+      }
     } catch (e) {
       setErr(e?.response?.data?.detail || 'Gagal mengirim jawaban.')
-    } finally { setBusy(false) }
-  }
-
-  function lanjut() {
-    const fb = feedback
-    setFeedback(null); setAnswer('')
-    if (fb.status !== 'selesai') setIdx(fb.idx)
+    } finally {
+      setBusy(false)
+    }
   }
 
   // ---- Error fatal ----
@@ -133,56 +133,28 @@ export default function TesKerjakan() {
 
         {soal.tipe === 'mc' && (
           <div className="flex" style={{ flexDirection: 'column', gap: '.6rem', marginTop: '1rem' }}>
-            {soal.opts.map((opt) => {
-              const dipilih = feedback && opt === answer
-              const tone = dipilih ? (feedback.benar ? 'var(--success)' : 'var(--danger)') : null
-              return (
-                <button key={opt} className="btn btn-ghost"
-                        style={{
-                          textAlign: 'left', justifyContent: 'flex-start', width: '100%',
-                          ...(tone ? {
-                            borderColor: tone, color: tone,
-                            background: `color-mix(in srgb, ${tone} 10%, transparent)`,
-                          } : {}),
-                        }}
-                        disabled={!!feedback || busy}
-                        onClick={() => { setAnswer(opt); jawab(opt) }}>
-                  {opt}
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {(soal.tipe === 'out' || soal.tipe === 'blank') && (
-          <form onSubmit={(e) => { e.preventDefault(); if (!feedback && answer.trim()) jawab(answer) }}
-                style={{ marginTop: '1rem' }}>
-            <input className="input" value={answer} disabled={!!feedback} autoFocus
-                   placeholder="Ketik jawabanmu…" onChange={(e) => setAnswer(e.target.value)} />
-            {!feedback && (
-              <button className="btn btn-primary" style={{ marginTop: '.8rem' }}
-                      disabled={!answer.trim() || busy}>
-                <Icon name="cek" size={16} /> Jawab
+            {soal.opts.map((opt) => (
+              <button key={opt} className="btn btn-ghost"
+                      style={{ textAlign: 'left', justifyContent: 'flex-start', width: '100%' }}
+                      disabled={busy}
+                      onClick={() => jawab(opt)}>
+                {opt}
               </button>
-            )}
-          </form>
+            ))}
+          </div>
         )}
 
-        {feedback && (
-          <div style={{ marginTop: '1.2rem' }}>
-            <p className={feedback.benar ? 'anim-pop' : 'anim-shake'}
-               style={{
-                 display: 'flex', alignItems: 'center', gap: '.4rem', fontWeight: 700,
-                 margin: '0 0 .9rem', color: feedback.benar ? 'var(--success)' : 'var(--danger)',
-               }}>
-              <Icon name={feedback.benar ? 'cek' : 'silang'} size={18} />
-              {feedback.benar ? 'Benar' : 'Salah'}
-            </p>
-            <button className="btn btn-primary" onClick={lanjut}>
-              {feedback.status === 'selesai' ? 'Lihat Nilai' : 'Lanjut'}
-              <Icon name="kanan" size={16} />
+        {['essay', 'out', 'blank'].includes(soal.tipe) && (
+          <form onSubmit={(e) => { e.preventDefault(); if (answer.trim()) jawab(answer) }}
+                style={{ marginTop: '1rem' }}>
+            <input className="input" value={answer} autoFocus
+                   placeholder={soal.tipe === 'essay' ? 'Tulis jawaban esai/isianmu di sini…' : 'Ketik jawabanmu…'}
+                   onChange={(e) => setAnswer(e.target.value)} />
+            <button className="btn btn-primary" style={{ marginTop: '.8rem' }}
+                    disabled={!answer.trim() || busy}>
+              <Icon name="cek" size={16} /> Jawab &amp; Lanjut
             </button>
-          </div>
+          </form>
         )}
       </div>
 

@@ -9,6 +9,7 @@ import random
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -101,16 +102,108 @@ def list_tes(db: Session = Depends(get_db),
         else:
             item["peserta_selesai"] = db.query(models.TesAttempt).filter_by(
                 tes_id=t.id, selesai=True).count()
+            item["jumlah_soal_khusus"] = len(t.questions)
         out.append(item)
     return out
+
+
+def _pastikan_tes_milik_dosen(db: Session, tid: int, dosen_id: int) -> models.Tes:
+    t = db.get(models.Tes, tid)
+    if not t:
+        raise HTTPException(404, "Tes tidak ditemukan.")
+    if t.kelas_id:
+        k = db.get(models.Kelas, t.kelas_id)
+        if k and k.dosen_id != dosen_id:
+            raise HTTPException(403, "Akses ditolak: Tes ini bukan milik kelas Anda.")
+    elif t.dibuat_oleh and t.dibuat_oleh != dosen_id:
+        raise HTTPException(403, "Akses ditolak: Tes ini bukan milik Anda.")
+    return t
+
+
+@router.get("/{tid}/questions", response_model=list[schemas.QuestionAdmin])
+def list_soal_tes(tid: int, db: Session = Depends(get_db),
+                  dosen: models.User = Depends(require_dosen)):
+    """Daftar soal yang melekat khusus pada tes ini."""
+    _pastikan_tes_milik_dosen(db, tid, dosen.id)
+    return (db.query(models.Question)
+            .filter_by(tes_id=tid)
+            .order_by(models.Question.urutan).all())
+
+
+@router.post("/{tid}/questions", response_model=schemas.QuestionAdmin)
+def tambah_soal_tes(tid: int, data: schemas.QuestionIn,
+                    db: Session = Depends(get_db),
+                    dosen: models.User = Depends(require_dosen)):
+    """Tambah soal baru yang eksklusif hanya untuk tes ini."""
+    _pastikan_tes_milik_dosen(db, tid, dosen.id)
+    urutan = data.urutan
+    if not urutan:
+        maxu = (db.query(func.coalesce(func.max(models.Question.urutan), -1))
+                .filter_by(tes_id=tid).scalar())
+        urutan = (maxu if maxu is not None else -1) + 1
+    q = models.Question(
+        tes_id=tid, level_id=None, urutan=urutan, tipe=data.tipe, q=data.q,
+        hint=data.hint or "", opts=data.opts, ans=data.ans,
+        code=data.code, starter=data.starter, expected=data.expected)
+    db.add(q)
+    db.commit()
+    db.refresh(q)
+    return q
+
+
+@router.post("/{tid}/tarik-peta")
+def tarik_soal_peta(tid: int, data: schemas.TarikSoalIn,
+                    db: Session = Depends(get_db),
+                    dosen: models.User = Depends(require_dosen)):
+    """Salin/tarik soal dari bab-bab peta pilihan dosen ke dalam tes ini."""
+    _pastikan_tes_milik_dosen(db, tid, dosen.id)
+    if not data.level_ids:
+        raise HTTPException(400, "Pilih minimal satu bab peta.")
+    
+    soal_peta = (db.query(models.Question)
+                 .filter(models.Question.level_id.in_(data.level_ids),
+                         models.Question.tipe != "code")
+                 .order_by(models.Question.level_id, models.Question.urutan).all())
+    
+    if not soal_peta:
+        raise HTTPException(400, "Bab yang dipilih belum memiliki soal yang bisa ditarik.")
+    
+    maxu = (db.query(func.coalesce(func.max(models.Question.urutan), -1))
+            .filter_by(tes_id=tid).scalar())
+    cur_u = (maxu if maxu is not None else -1) + 1
+    
+    tertarik = 0
+    for sq in soal_peta:
+        baru = models.Question(
+            tes_id=tid, level_id=None, urutan=cur_u, tipe=sq.tipe, q=sq.q,
+            hint=sq.hint or "", opts=sq.opts, ans=sq.ans,
+            code=sq.code, starter=sq.starter, expected=sq.expected
+        )
+        db.add(baru)
+        cur_u += 1
+        tertarik += 1
+        
+    db.commit()
+    return {"ok": True, "jumlah_ditarik": tertarik}
+
+
+@router.delete("/questions/{qid}")
+def hapus_soal_tes(qid: int, db: Session = Depends(get_db),
+                   dosen: models.User = Depends(require_dosen)):
+    """Hapus satu soal dari tes ini."""
+    q = db.get(models.Question, qid)
+    if not q or not q.tes_id:
+        raise HTTPException(404, "Soal tes tidak ditemukan.")
+    _pastikan_tes_milik_dosen(db, q.tes_id, dosen.id)
+    db.delete(q)
+    db.commit()
+    return {"ok": True}
 
 
 @router.delete("/{tid}")
 def hapus_tes(tid: int, db: Session = Depends(get_db),
               dosen: models.User = Depends(require_dosen)):
-    t = db.get(models.Tes, tid)
-    if not t:
-        raise HTTPException(404, "Tes tidak ditemukan.")
+    t = _pastikan_tes_milik_dosen(db, tid, dosen.id)
     db.query(models.TesAttempt).filter_by(tes_id=tid).delete()
     db.delete(t)
     db.commit()
@@ -130,16 +223,21 @@ def mulai_tes(tid: int, db: Session = Depends(get_db),
     if a and a.selesai:
         raise HTTPException(400, "Kamu sudah mengerjakan tes ini.")
     if not a:
-        qs = (db.query(models.Question)
-              .join(models.Level, models.Question.level_id == models.Level.id)
-              .filter(models.Level.kelas_id == kelas_id,
-                      models.Question.tipe != "code").all())
+        # Prioritas 1: Jika tes memiliki soal khusus yang dibuat/ditarik dosen
+        soal_khusus = [q for q in t.questions if q.tipe != "code"]
+        if soal_khusus:
+            qs = list(soal_khusus)
+        else:
+            # Prioritas 2 (Fallback): Ambil dari bank soal level kelas
+            qs = (db.query(models.Question)
+                  .join(models.Level, models.Question.level_id == models.Level.id)
+                  .filter(models.Level.kelas_id == kelas_id,
+                          models.Question.tipe != "code").all())
         random.shuffle(qs)
         order = [q.id for q in qs[:t.jumlah_soal]]
-        if not order:  # #9: bank soal kelas masih kosong -> jangan simpan attempt macet
+        if not order:  # #9: bank soal masih kosong -> jangan simpan attempt macet
             raise HTTPException(
-                400, "Bank soal kelas ini masih kosong, tes belum bisa dikerjakan. "
-                     "Hubungi dosenmu untuk mengisi soal dulu.")
+                400, "Bank soal tes ini masih kosong. Hubungi dosenmu untuk mengisi soal dulu.")
         a = models.TesAttempt(tes_id=tid, user_id=user.id,
                               question_order=order, idx=0, benar_count=0)
         db.add(a)
@@ -207,8 +305,12 @@ def jawab_tes(tid: int, data: schemas.TesJawabIn, db: Session = Depends(get_db),
         status = "selesai"
         nilai = round(a.benar_count / total * 100) if total else 0
     db.commit()
-    return {"benar": benar, "idx": a.idx, "total": total, "status": status,
-            "benar_count": a.benar_count, "nilai": nilai}
+    # Anti-curang: jangan bocorkan benar/salah sebelum tes selesai total
+    return {
+        "idx": a.idx, "total": total, "status": status,
+        "benar_count": a.benar_count if status == "selesai" else None,
+        "nilai": nilai if status == "selesai" else None,
+    }
 
 
 @router.get("/{tid}/hasil")

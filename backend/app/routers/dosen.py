@@ -18,6 +18,35 @@ def _anggota_ids(db, kelas_id):
     return [m.user_id for m in
             db.query(models.KelasMember).filter_by(kelas_id=kelas_id).all()]
 
+
+def _pastikan_level_milik_dosen(db: Session, level_id: int, dosen_id: int) -> models.Level:
+    """Pastikan level ada dan milik kelas dosen yang sedang login."""
+    lv = db.get(models.Level, level_id)
+    if not lv:
+        raise HTTPException(404, "Level tidak ditemukan")
+    if lv.kelas_id:
+        k = db.get(models.Kelas, lv.kelas_id)
+        if k and k.dosen_id != dosen_id:
+            raise HTTPException(403, "Akses ditolak: Level ini bukan milik kelas Anda.")
+    elif lv.created_by and lv.created_by != dosen_id:
+        raise HTTPException(403, "Akses ditolak: Level ini bukan milik Anda.")
+    return lv
+
+
+def _pastikan_soal_milik_dosen(db: Session, qid: int, dosen_id: int) -> models.Question:
+    """Pastikan soal ada dan berada di level/kelas milik dosen yang sedang login."""
+    q = db.get(models.Question, qid)
+    if not q:
+        raise HTTPException(404, "Soal tidak ditemukan")
+    if q.level:
+        if q.level.kelas_id:
+            k = db.get(models.Kelas, q.level.kelas_id)
+            if k and k.dosen_id != dosen_id:
+                raise HTTPException(403, "Akses ditolak: Soal ini bukan milik kelas Anda.")
+        elif q.level.created_by and q.level.created_by != dosen_id:
+            raise HTTPException(403, "Akses ditolak: Soal ini bukan milik Anda.")
+    return q
+
 # dependencies di level router: SEMUA endpoint di sini butuh peran dosen
 router = APIRouter(prefix="/dosen", tags=["dosen"],
                    dependencies=[Depends(require_dosen)])
@@ -38,11 +67,10 @@ def overview(db: Session = Depends(get_db),
 # ==================== KELOLA SOAL (CRUD) ====================
 @router.put("/levels/{level_id}")
 def update_level_settings(level_id: int, data: schemas.LevelSettingsIn,
-                          db: Session = Depends(get_db)):
+                          db: Session = Depends(get_db),
+                          dosen: models.User = Depends(require_dosen)):
     """Ubah pengaturan level — untuk sekarang: jumlah nyawa (1–10)."""
-    lv = db.get(models.Level, level_id)
-    if not lv:
-        raise HTTPException(404, "Level tidak ditemukan")
+    lv = _pastikan_level_milik_dosen(db, level_id, dosen.id)
     lv.lives = max(1, min(10, data.lives))
     lv.soal_ditanya = max(0, min(len(lv.questions), data.soal_ditanya))  # 0 = semua
     if data.nama is not None and data.nama.strip():
@@ -56,9 +84,9 @@ def update_level_settings(level_id: int, data: schemas.LevelSettingsIn,
 
 @router.get("/levels/{level_id}/questions",
             response_model=list[schemas.QuestionAdmin])
-def list_questions(level_id: int, db: Session = Depends(get_db)):
-    if not db.get(models.Level, level_id):
-        raise HTTPException(404, "Level tidak ditemukan")
+def list_questions(level_id: int, db: Session = Depends(get_db),
+                   dosen: models.User = Depends(require_dosen)):
+    _pastikan_level_milik_dosen(db, level_id, dosen.id)
     return (db.query(models.Question)
             .filter_by(level_id=level_id)
             .order_by(models.Question.urutan).all())
@@ -67,9 +95,9 @@ def list_questions(level_id: int, db: Session = Depends(get_db)):
 @router.post("/levels/{level_id}/questions",
              response_model=schemas.QuestionAdmin)
 def create_question(level_id: int, data: schemas.QuestionIn,
-                    db: Session = Depends(get_db)):
-    if not db.get(models.Level, level_id):
-        raise HTTPException(404, "Level tidak ditemukan")
+                    db: Session = Depends(get_db),
+                    dosen: models.User = Depends(require_dosen)):
+    _pastikan_level_milik_dosen(db, level_id, dosen.id)
     urutan = data.urutan
     if not urutan:  # taruh di akhir
         maxu = (db.query(func.coalesce(func.max(models.Question.urutan), -1))
@@ -87,10 +115,9 @@ def create_question(level_id: int, data: schemas.QuestionIn,
 
 @router.put("/questions/{qid}", response_model=schemas.QuestionAdmin)
 def update_question(qid: int, data: schemas.QuestionIn,
-                    db: Session = Depends(get_db)):
-    q = db.get(models.Question, qid)
-    if not q:
-        raise HTTPException(404, "Soal tidak ditemukan")
+                    db: Session = Depends(get_db),
+                    dosen: models.User = Depends(require_dosen)):
+    q = _pastikan_soal_milik_dosen(db, qid, dosen.id)
     q.tipe = data.tipe
     q.q = data.q
     q.hint = data.hint or ""
@@ -107,10 +134,9 @@ def update_question(qid: int, data: schemas.QuestionIn,
 
 
 @router.delete("/questions/{qid}")
-def delete_question(qid: int, db: Session = Depends(get_db)):
-    q = db.get(models.Question, qid)
-    if not q:
-        raise HTTPException(404, "Soal tidak ditemukan")
+def delete_question(qid: int, db: Session = Depends(get_db),
+                    dosen: models.User = Depends(require_dosen)):
+    q = _pastikan_soal_milik_dosen(db, qid, dosen.id)
     db.delete(q)
     db.commit()
     return {"ok": True}

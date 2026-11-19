@@ -1,8 +1,11 @@
 import axios from 'axios'
 
-// Semua panggilan API lewat sini. baseURL menunjuk ke backend FastAPI.
+// Gunakan URL dari .env jika ada (misal saat deploy), fallback ke localhost untuk development
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+
+// Semua panggilan API lewat sini.
 const client = axios.create({
-  baseURL: 'http://127.0.0.1:8000',
+  baseURL: API_URL,
 })
 
 // Sisipkan token login otomatis di setiap request (kalau ada).
@@ -12,19 +15,29 @@ client.interceptors.request.use((config) => {
   return config
 })
 
-// Kalau backend bilang "belum pilih kelas" (409), arahkan ke Profil untuk
-// memilih kelas — sambil menitip pesan biar user paham kenapa dipindah.
+// Tangani respons error global (401 kadaluwarsa & 409 belum pilih kelas)
 client.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err?.response?.status === 409 &&
-        !window.location.pathname.startsWith('/profil')) {
+    const status = err?.response?.status
+
+    // 1. Jika token kedaluwarsa / tidak valid (401), bersihkan sesi dan redirect ke login
+    if (status === 401 && !window.location.pathname.startsWith('/login')) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      window.location.href = '/login'
+      return Promise.reject(err)
+    }
+
+    // 2. Kalau backend bilang "belum pilih kelas" (409), arahkan ke Profil
+    if (status === 409 && !window.location.pathname.startsWith('/profil')) {
       sessionStorage.setItem(
         'kelasHint',
-        err?.response?.data?.detail ||
-          'Pilih kelas dulu untuk membuka menu ini.')
+        err?.response?.data?.detail || 'Pilih kelas dulu untuk membuka menu ini.'
+      )
       window.location.href = '/profil'
     }
+
     return Promise.reject(err)
   }
 )

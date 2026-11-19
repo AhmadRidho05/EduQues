@@ -366,12 +366,13 @@ export default function Level() {
           </div>
         )}
 
-        {/* Tebak output / lengkapi kode */}
-        {(soal.tipe === 'out' || soal.tipe === 'blank') && (
+        {/* Isian singkat / esai / tebak output / lengkapi kode */}
+        {['essay', 'out', 'blank'].includes(soal.tipe) && (
           <form onSubmit={(e) => { e.preventDefault(); if (!feedback && answer.trim()) kirim(answer) }}
                 style={{ marginTop: '1rem' }}>
             <input className="input" value={answer} disabled={!!feedback} autoFocus
-                   placeholder="Ketik jawabanmu…" onChange={(e) => setAnswer(e.target.value)} />
+                   placeholder={soal.tipe === 'essay' ? 'Tulis jawaban esai/isianmu di sini…' : 'Ketik jawabanmu…'}
+                   onChange={(e) => setAnswer(e.target.value)} />
             {!feedback && (
               <button className="btn btn-primary" style={{ marginTop: '.8rem' }}
                       disabled={!answer.trim() || busy}>Jawab</button>

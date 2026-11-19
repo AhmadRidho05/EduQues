@@ -4,8 +4,11 @@ import { useAuth } from '../context/AuthContext'
 import Icon from '../components/Icon'
 
 const TIPE_LABEL = {
-  mc: 'Pilihan ganda', out: 'Tebak output',
-  blank: 'Lengkapi kode', code: 'Tulis kode',
+  mc: 'Pilihan ganda',
+  essay: 'Isian singkat / Esai',
+  out: 'Tebak output (IT)',
+  blank: 'Lengkapi kode (IT)',
+  code: 'Tulis kode (IT)',
 }
 const kosong = { tipe: 'mc', q: '', hint: '', optsText: '', ansText: '', code: '', starter: '', expected: '' }
 const splitLines = (t) => t.split('\n').map((s) => s.trim()).filter(Boolean)
@@ -94,7 +97,7 @@ export default function KelolaSoal() {
     return {
       tipe: t, q: form.q, hint: form.hint,
       opts: t === 'mc' ? splitLines(form.optsText) : null,
-      ans: ['mc', 'out', 'blank'].includes(t) ? splitLines(form.ansText) : null,
+      ans: ['mc', 'essay', 'out', 'blank'].includes(t) ? splitLines(form.ansText) : null,
       code: ['out', 'blank'].includes(t) ? form.code : null,
       starter: t === 'code' ? form.starter : null,
       expected: t === 'code' ? form.expected : null,
@@ -234,10 +237,10 @@ export default function KelolaSoal() {
 
           {t === 'mc' && (
             <>
-              <label style={lbl}>Pilihan jawaban (satu per baris)</label>
+              <label style={lbl}>Pilihan jawaban (tekan Enter untuk opsi berikutnya: A, B, C, D)</label>
               <textarea className="input" value={form.optsText} onChange={set('optsText')}
-                        placeholder={'print\necho\nshow'}
-                        style={{ marginTop: 4, minHeight: 90, ...mono }} />
+                        placeholder={'Ketik opsi A di baris ini, lalu Enter\nKetik opsi B di baris ini, lalu Enter\nKetik opsi C di baris ini, lalu Enter\nKetik opsi D di baris ini'}
+                        style={{ marginTop: 4, minHeight: 95 }} />
             </>
           )}
 
@@ -250,11 +253,16 @@ export default function KelolaSoal() {
             </>
           )}
 
-          {['mc', 'out', 'blank'].includes(t) && (
+          {['mc', 'essay', 'out', 'blank'].includes(t) && (
             <>
-              <label style={lbl}>Jawaban benar (satu per baris — boleh beberapa yang diterima)</label>
+              <label style={lbl}>
+                {t === 'mc'
+                  ? 'Jawaban benar (tulis persis salah satu opsi pilihan di atas)'
+                  : 'Kunci jawaban benar (boleh beberapa variasi jawaban yang diterima, satu per baris)'}
+              </label>
               <textarea className="input" value={form.ansText} onChange={set('ansText')} required
-                        placeholder={'print'} style={{ marginTop: 4, minHeight: 56, ...mono }} />
+                        placeholder={t === 'mc' ? 'Salin/tuliskan teks opsi yang benar persis seperti di atas...' : 'Contoh variasi jawaban yang diterima:\nMonopoli\nPasar Monopoli'}
+                        style={{ marginTop: 4, minHeight: 65 }} />
             </>
           )}
 
@@ -325,9 +333,10 @@ export default function KelolaSoal() {
             </div>
           )}
 
-          {['out', 'blank'].includes(t) && (
-            <input className="input" disabled placeholder="Ketik jawabanmu…"
-                   style={{ marginBottom: '.9rem', ...mono }} />
+          {['essay', 'out', 'blank'].includes(t) && (
+            <input className="input" disabled
+                   placeholder={t === 'essay' ? 'Mahasiswa akan mengetik jawaban di sini…' : 'Ketik jawabanmu…'}
+                   style={{ marginBottom: '.9rem', ...(t === 'essay' ? {} : mono) }} />
           )}
 
           {t === 'code' && (
@@ -401,7 +410,7 @@ export default function KelolaSoal() {
                 <span className="muted" style={{ fontSize: '.8rem', fontWeight: 700, width: 28, flexShrink: 0 }}>
                   #{i + 1}
                 </span>
-                <span className="pill" style={{ flexShrink: 0 }}>{TIPE_LABEL[q.tipe]}</span>
+                <span className="pill" style={{ flexShrink: 0 }}>{TIPE_LABEL[q.tipe] || q.tipe}</span>
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {q.q}
                 </span>

@@ -127,7 +127,8 @@ class LeaderboardRow(BaseModel):
 class QuestionAdmin(BaseModel):
     """Soal versi dosen — LENGKAP dengan kunci jawaban (ans/expected)."""
     id: int
-    level_id: int
+    level_id: int | None = None
+    tes_id: int | None = None
     urutan: int
     tipe: str
     q: str
@@ -194,3 +195,8 @@ class QuestionIn(BaseModel):
     starter: str | None = None
     expected: str | None = None
     urutan: int = 0
+
+
+class TarikSoalIn(BaseModel):
+    """Pilihan level/bab peta yang ingin disalin soal-soalnya ke tes."""
+    level_ids: list[int]

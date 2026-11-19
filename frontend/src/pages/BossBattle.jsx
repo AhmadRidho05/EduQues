@@ -271,10 +271,11 @@ export default function BossBattle({ levelId }) {
               </div>
             )}
 
-            {(question.tipe === 'out' || question.tipe === 'blank') && (
+            {['essay', 'out', 'blank'].includes(question.tipe) && (
               <form onSubmit={(e) => { e.preventDefault(); if (answer.trim()) kirim(answer) }}
                     style={{ marginTop: '1rem' }}>
-                <input className="input" value={answer} autoFocus placeholder="Ketik jawabanmu…"
+                <input className="input" value={answer} autoFocus
+                       placeholder={question.tipe === 'essay' ? 'Tulis jawaban esai/isianmu di sini…' : 'Ketik jawabanmu…'}
                        onChange={(e) => setAnswer(e.target.value)} />
                 <button className="btn btn-danger" style={{ marginTop: '.8rem' }}
                         disabled={!answer.trim()}>Serang! ⚔️</button>
